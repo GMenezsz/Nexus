@@ -1,365 +1,188 @@
-// ==================== CONFIG ====================
-const API_URL = "https://app-financas-api-gsjo.onrender.com";
-const CHAVE_USUARIO = "brotar_usuario";
-
-// ==================== ESTADO ====================
-let usuarioAtual = null;      // { usuario_id, nome, sobrenome }
-let categoriasCache = null;   // { receita: [...], despesa: [...] }
-let tipoSelecionado = "receita";
-let idParaExcluir = null;
-
-// ==================== ELEMENTOS ====================
-const telaLogin = document.getElementById("tela-login");
-const telaApp = document.getElementById("tela-app");
-const formLogin = document.getElementById("form-login");
-const inputNome = document.getElementById("input-nome");
-const inputSobrenome = document.getElementById("input-sobrenome");
-const erroLogin = document.getElementById("erro-login");
-const btnEntrar = document.getElementById("btn-entrar");
-
-const saudacao = document.getElementById("saudacao");
-const btnSair = document.getElementById("btn-sair");
-const btnAtualizar = document.getElementById("btn-atualizar");
-
-const valorSaldo = document.getElementById("valor-saldo");
-const valorReceitas = document.getElementById("valor-receitas");
-const valorDespesas = document.getElementById("valor-despesas");
-const listaCategorias = document.getElementById("lista-categorias");
-const listaTransacoes = document.getElementById("lista-transacoes");
-
-const btnNova = document.getElementById("btn-nova");
-const fabNova = document.getElementById("fab-nova");
-const modalFundo = document.getElementById("modal-fundo");
-const btnFecharModal = document.getElementById("btn-fechar-modal");
-const btnCancelarTransacao = document.getElementById("btn-cancelar-transacao");
-const alternadorTipo = document.getElementById("alternador-tipo");
-const formTransacao = document.getElementById("form-transacao");
-const inputCategoria = document.getElementById("input-categoria");
-const inputValor = document.getElementById("input-valor");
-const erroTransacao = document.getElementById("erro-transacao");
-const btnSalvarTransacao = document.getElementById("btn-salvar-transacao");
-
-const modalConfirmarFundo = document.getElementById("modal-confirmar-fundo");
-const btnCancelarExclusao = document.getElementById("btn-cancelar-exclusao");
-const btnConfirmarExclusao = document.getElementById("btn-confirmar-exclusao");
-
-const toast = document.getElementById("toast");
-
-// ==================== HELPERS ====================
-function formatarMoeda(valor) {
-  return (valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-function mostrarToast(mensagem, tipo = "ok") {
-  toast.textContent = mensagem;
-  toast.classList.toggle("erro", tipo === "erro");
-  toast.hidden = false;
-  requestAnimationFrame(() => toast.classList.add("visivel"));
-  clearTimeout(mostrarToast._timer);
-  mostrarToast._timer = setTimeout(() => {
-    toast.classList.remove("visivel");
-    setTimeout(() => { toast.hidden = true; }, 250);
-  }, 3200);
+body {
+    background-color: #f4f6f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
 }
 
-function alternarCarregando(botao, carregando) {
-  const texto = botao.querySelector(".btn-texto");
-  const spinner = botao.querySelector(".btn-spinner");
-  botao.disabled = carregando;
-  if (texto) texto.style.opacity = carregando ? "0" : "1";
-  if (spinner) spinner.hidden = !carregando;
+.container {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 600px;
 }
 
-async function chamarApi(caminho, opcoes = {}) {
-  let resposta;
-  try {
-    resposta = await fetch(`${API_URL}${caminho}`, {
-      headers: { "Content-Type": "application/json" },
-      ...opcoes,
-    });
-  } catch (erroRede) {
-    throw new Error("Não foi possível falar com o servidor. Verifique sua conexão e tente novamente.");
-  }
-
-  let corpo = null;
-  try { corpo = await resposta.json(); } catch (_) { /* corpo vazio, ok */ }
-
-  if (!resposta.ok) {
-    const detalhe = corpo && corpo.detail ? corpo.detail : "Ocorreu um erro inesperado.";
-    throw new Error(detalhe);
-  }
-  return corpo;
+.hidden {
+    display: none !important;
 }
 
-// ==================== SESSÃO ====================
-function carregarSessao() {
-  const salvo = localStorage.getItem(CHAVE_USUARIO);
-  if (!salvo) return null;
-  try { return JSON.parse(salvo); } catch (_) { return null; }
+h2, h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+    text-align: center;
 }
 
-function salvarSessao(usuario) {
-  localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuario));
+.input-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
-function encerrarSessao() {
-  localStorage.removeItem(CHAVE_USUARIO);
-  usuarioAtual = null;
-  telaApp.hidden = true;
-  telaLogin.hidden = false;
-  formLogin.reset();
+.input-group label {
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #555;
 }
 
-// ==================== LOGIN ====================
-formLogin.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
-  erroLogin.hidden = true;
-
-  const nome = inputNome.value.trim();
-  const sobrenome = inputSobrenome.value.trim();
-
-  if (nome.length < 3 || sobrenome.length < 3) {
-    erroLogin.textContent = "Nome e sobrenome devem ter pelo menos 3 caracteres.";
-    erroLogin.hidden = false;
-    return;
-  }
-
-  alternarCarregando(btnEntrar, true);
-  try {
-    const dados = await chamarApi("/login", {
-      method: "POST",
-      body: JSON.stringify({ nome, sobrenome }),
-    });
-    usuarioAtual = dados;
-    salvarSessao(dados);
-    await entrarNoApp();
-  } catch (erro) {
-    erroLogin.textContent = erro.message;
-    erroLogin.hidden = false;
-  } finally {
-    alternarCarregando(btnEntrar, false);
-  }
-});
-
-btnSair.addEventListener("click", encerrarSessao);
-
-// ==================== ENTRAR NO APP ====================
-async function entrarNoApp() {
-  telaLogin.hidden = true;
-  telaApp.hidden = false;
-  saudacao.textContent = `Olá, ${usuarioAtual.nome}`;
-  await Promise.all([carregarResumo(), carregarTransacoes()]);
+.input-group input, 
+.input-group select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
 }
 
-btnAtualizar.addEventListener("click", () => {
-  carregarResumo();
-  carregarTransacoes();
-});
-
-// ==================== RESUMO / SALDO ====================
-async function carregarResumo() {
-  try {
-    const resumo = await chamarApi(`/transacoes/${usuarioAtual.usuario_id}/resumo`);
-    valorSaldo.textContent = formatarMoeda(resumo.saldo);
-    valorReceitas.textContent = formatarMoeda(resumo.total_receitas);
-    valorDespesas.textContent = formatarMoeda(resumo.total_despesas);
-    renderizarCategorias(resumo.resumo_categoria);
-  } catch (erro) {
-    mostrarToast(erro.message, "erro");
-  }
+.input-group input:focus, 
+.input-group select:focus {
+    border-color: #3498db;
 }
 
-function renderizarCategorias(resumoCategoria) {
-  const entradas = Object.entries(resumoCategoria || {}).filter(([, v]) => v !== 0);
-
-  if (entradas.length === 0) {
-    listaCategorias.innerHTML = `<p class="estado-vazio">Ainda não há dados para agrupar por categoria.</p>`;
-    return;
-  }
-
-  const maiorAbsoluto = Math.max(...entradas.map(([, v]) => Math.abs(v)), 1);
-
-  listaCategorias.innerHTML = entradas
-    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-    .map(([categoria, valor]) => {
-      const positivo = valor >= 0;
-      const largura = Math.max((Math.abs(valor) / maiorAbsoluto) * 100, 4);
-      const cor = positivo ? "var(--income)" : "var(--expense)";
-      return `
-        <div class="categoria-item">
-          <span class="categoria-nome">${escaparHtml(categoria)}</span>
-          <span class="categoria-barra-fundo">
-            <span class="categoria-barra" style="width:${largura}%; background:${cor};"></span>
-          </span>
-          <span class="categoria-valor" style="color:${cor}">${formatarMoeda(valor)}</span>
-        </div>`;
-    })
-    .join("");
+.btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 
-// ==================== TRANSAÇÕES ====================
-async function carregarTransacoes() {
-  try {
-    const dados = await chamarApi(`/transacoes/${usuarioAtual.usuario_id}`);
-    renderizarTransacoes(dados.transacoes || []);
-  } catch (erro) {
-    mostrarToast(erro.message, "erro");
-  }
+.btn:hover {
+    background-color: #2980b9;
 }
 
-function ehReceita(tipo) {
-  return ["receita", "entrada", "ganhos"].includes((tipo || "").toLowerCase());
+.btn-secondary {
+    padding: 6px 12px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
 }
 
-function renderizarTransacoes(transacoes) {
-  if (transacoes.length === 0) {
-    listaTransacoes.innerHTML = `<p class="estado-vazio">Nenhuma transação ainda. Toque em "+ Nova transação" para começar.</p>`;
-    return;
-  }
-
-  listaTransacoes.innerHTML = [...transacoes]
-    .reverse()
-    .map((t) => {
-      const receita = ehReceita(t.tipo);
-      const classe = receita ? "receita" : "despesa";
-      const sinal = receita ? "+" : "−";
-      const icone = receita ? "↑" : "↓";
-      return `
-        <div class="transacao-item ${classe}" data-id="${t.id}">
-          <div class="transacao-icone">${icone}</div>
-          <div class="transacao-info">
-            <div class="transacao-categoria">${escaparHtml(t.categoria)}</div>
-            <div class="transacao-tipo">${receita ? "Entrada" : "Saída"}</div>
-          </div>
-          <div class="transacao-valor">${sinal} ${formatarMoeda(t.valor)}</div>
-          <button class="transacao-excluir" data-id="${t.id}" aria-label="Remover transação" title="Remover">🗑</button>
-        </div>`;
-    })
-    .join("");
+.btn-secondary:hover {
+    background-color: #c0392b;
 }
 
-function escaparHtml(texto) {
-  const div = document.createElement("div");
-  div.textContent = texto ?? "";
-  return div.innerHTML;
+.btn-delete {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
 }
 
-listaTransacoes.addEventListener("click", (evento) => {
-  const botao = evento.target.closest(".transacao-excluir");
-  if (!botao) return;
-  idParaExcluir = botao.dataset.id;
-  modalConfirmarFundo.hidden = false;
-});
-
-btnCancelarExclusao.addEventListener("click", () => {
-  idParaExcluir = null;
-  modalConfirmarFundo.hidden = true;
-});
-
-btnConfirmarExclusao.addEventListener("click", async () => {
-  if (!idParaExcluir) return;
-  try {
-    await chamarApi(`/transacoes/${idParaExcluir}`, { method: "DELETE" });
-    mostrarToast("Transação removida.");
-    modalConfirmarFundo.hidden = true;
-    idParaExcluir = null;
-    await Promise.all([carregarResumo(), carregarTransacoes()]);
-  } catch (erro) {
-    mostrarToast(erro.message, "erro");
-  }
-});
-
-// ==================== MODAL NOVA TRANSAÇÃO ====================
-function abrirModalTransacao() {
-  erroTransacao.hidden = true;
-  formTransacao.reset();
-  definirTipo("receita");
-  modalFundo.hidden = false;
-  carregarCategoriasSelect();
+.btn-delete:hover {
+    background-color: #c0392b;
 }
 
-function fecharModalTransacao() {
-  modalFundo.hidden = true;
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
 }
 
-btnNova.addEventListener("click", abrirModalTransacao);
-fabNova.addEventListener("click", abrirModalTransacao);
-btnFecharModal.addEventListener("click", fecharModalTransacao);
-btnCancelarTransacao.addEventListener("click", fecharModalTransacao);
-modalFundo.addEventListener("click", (e) => { if (e.target === modalFundo) fecharModalTransacao(); });
-modalConfirmarFundo.addEventListener("click", (e) => {
-  if (e.target === modalConfirmarFundo) { modalConfirmarFundo.hidden = true; idParaExcluir = null; }
-});
-
-alternadorTipo.addEventListener("click", (evento) => {
-  const botao = evento.target.closest(".alternador-opcao");
-  if (!botao) return;
-  definirTipo(botao.dataset.tipo);
-});
-
-function definirTipo(tipo) {
-  tipoSelecionado = tipo;
-  [...alternadorTipo.children].forEach((b) => b.classList.toggle("ativo", b.dataset.tipo === tipo));
-  preencherSelectCategorias();
+.header h1 {
+    font-size: 22px;
+    color: #2c3e50;
 }
 
-async function carregarCategoriasSelect() {
-  if (!categoriasCache) {
-    try {
-      categoriasCache = await chamarApi("/categorias");
-    } catch (erro) {
-      erroTransacao.textContent = erro.message;
-      erroTransacao.hidden = false;
-      return;
-    }
-  }
-  preencherSelectCategorias();
+.resumo-cards {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
 }
 
-function preencherSelectCategorias() {
-  if (!categoriasCache) return;
-  const lista = categoriasCache[tipoSelecionado] || [];
-  inputCategoria.innerHTML = lista.map((c) => `<option value="${escaparHtml(c)}">${escaparHtml(c)}</option>`).join("");
+.card {
+    flex: 1;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e9ecef;
 }
 
-formTransacao.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
-  erroTransacao.hidden = true;
+.card h3 {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 8px;
+}
 
-  const valor = parseFloat(inputValor.value);
-  if (isNaN(valor) || valor < 0) {
-    erroTransacao.textContent = "Informe um valor válido, maior ou igual a zero.";
-    erroTransacao.hidden = false;
-    return;
-  }
+.card p {
+    font-size: 18px;
+    font-weight: bold;
+}
 
-  alternarCarregando(btnSalvarTransacao, true);
-  try {
-    await chamarApi("/transacoes", {
-      method: "POST",
-      body: JSON.stringify({
-        usuario_id: usuarioAtual.usuario_id,
-        tipo: tipoSelecionado,
-        categoria: inputCategoria.value,
-        valor,
-      }),
-    });
-    mostrarToast(tipoSelecionado === "receita" ? "Entrada adicionada." : "Saída adicionada.");
-    fecharModalTransacao();
-    await Promise.all([carregarResumo(), carregarTransacoes()]);
-  } catch (erro) {
-    erroTransacao.textContent = erro.message;
-    erroTransacao.hidden = false;
-  } finally {
-    alternarCarregando(btnSalvarTransacao, false);
-  }
-});
+.green { color: #27ae60; }
+.red { color: #c0392b; }
 
-// ==================== INICIALIZAÇÃO ====================
-(function iniciar() {
-  const sessao = carregarSessao();
-  if (sessao && sessao.usuario_id) {
-    usuarioAtual = sessao;
-    entrarNoApp();
-  }
-})();
+.form-section, .history-section {
+    margin-bottom: 25px;
+}
+
+.table-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 6px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+th {
+    background-color: #f8f9fa;
+    color: #444;
+    position: sticky;
+    top: 0;
+}
+
+.error {
+    color: #e74c3c;
+    font-size: 13px;
+    text-align: center;
+    margin-top: 10px;
+}
