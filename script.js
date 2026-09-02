@@ -1,4 +1,4 @@
-const API_URL = "https://app-financas-api-gsjo.onrender.com";[cite: 1]
+const API_URL = "https://app-financas-api-gsjo.onrender.com";
 
 // Elementos da Tela de Login
 const loginScreen = document.getElementById("login-screen");
