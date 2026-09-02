@@ -1,172 +1,104 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brotar · Controle financeiro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Finanças</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ==================== TELA DE LOGIN ==================== -->
-<section id="tela-login" class="tela tela-login">
-  <div class="glow-login" aria-hidden="true"></div>
-  <div class="cartao-login">
-    <div class="marca">
-      <span class="marca-simbolo">🌱</span>
-      <span class="marca-nome">Brotar</span>
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="container">
+        <h2>Entrar no App Finanças</h2>
+        <form id="login-form">
+            <div class="input-group">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" required placeholder="Mínimo 3 letras">
+            </div>
+            <div class="input-group">
+                <label for="sobrenome">Sobrenome</label>
+                <input type="text" id="sobrenome" required placeholder="Mínimo 3 letras">
+            </div>
+            <button type="submit" class="btn">Entrar</button>
+        </form>
+        <p id="login-error" class="error"></p>
     </div>
-    <h1>Suas finanças, do seu jeito.</h1>
-    <p class="subtitulo">Entre com seu nome para acessar ou criar sua conta.</p>
 
-    <form id="form-login" novalidate>
-      <label class="campo">
-        <span>Nome</span>
-        <input type="text" id="input-nome" name="nome" placeholder="Ex.: Maria" autocomplete="given-name" required minlength="3">
-      </label>
-      <label class="campo">
-        <span>Sobrenome</span>
-        <input type="text" id="input-sobrenome" name="sobrenome" placeholder="Ex.: Oliveira" autocomplete="family-name" required minlength="3">
-      </label>
+    <!-- TELA PRINCIPAL (DASHBOARD) -->
+    <div id="app-screen" class="container hidden">
+        <header class="header">
+            <h1>Olá, <span id="user-greeting"></span>!</h1>
+            <button id="logout-btn" class="btn-secondary">Sair</button>
+        </header>
 
-      <p id="erro-login" class="mensagem-erro" hidden></p>
-
-      <button type="submit" id="btn-entrar" class="botao botao-primario botao-full">
-        <span class="btn-texto">Entrar</span>
-        <span class="btn-spinner" hidden></span>
-      </button>
-    </form>
-    <p class="nota-servidor">O servidor pode levar alguns segundos para acordar na primeira visita.</p>
-  </div>
-</section>
-
-<!-- ==================== APP ==================== -->
-<section id="tela-app" class="tela tela-app" hidden>
-
-  <header class="topo">
-    <div class="marca marca-topo">
-      <span class="marca-simbolo">🌱</span>
-      <span class="marca-nome">Brotar</span>
-    </div>
-    <div class="topo-usuario">
-      <span id="saudacao">Olá</span>
-      <button id="btn-sair" class="botao botao-fantasma" title="Sair">Sair</button>
-    </div>
-  </header>
-
-  <main class="conteudo">
-
-    <!-- Hero de saldo -->
-    <section class="hero-saldo">
-      <div class="hero-saldo-topo">
-        <span class="hero-rotulo">Saldo atual</span>
-        <button id="btn-atualizar" class="botao-icone" title="Atualizar dados">↻</button>
-      </div>
-      <p id="valor-saldo" class="hero-valor">R$ 0,00</p>
-
-      <div class="hero-stats">
-        <div class="hero-stat">
-          <span class="ponto ponto-receita" aria-hidden="true"></span>
-          <div>
-            <span class="hero-stat-rotulo">Entradas</span>
-            <span id="valor-receitas" class="hero-stat-valor">R$ 0,00</span>
-          </div>
+        <!-- CARDS DE RESUMO -->
+        <div class="resumo-cards">
+            <div class="card">
+                <h3>Saldo Total</h3>
+                <p id="saldo-total">R$ 0,00</p>
+            </div>
+            <div class="card">
+                <h3>Receitas</h3>
+                <p id="total-receitas" class="green">R$ 0,00</p>
+            </div>
+            <div class="card">
+                <h3>Despesas</h3>
+                <p id="total-despesas" class="red">R$ 0,00</p>
+            </div>
         </div>
-        <div class="hero-stat">
-          <span class="ponto ponto-despesa" aria-hidden="true"></span>
-          <div>
-            <span class="hero-stat-rotulo">Saídas</span>
-            <span id="valor-despesas" class="hero-stat-valor">R$ 0,00</span>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Resumo por categoria -->
-    <section class="secao" id="secao-categorias">
-      <div class="secao-titulo">
-        <h2>Por categoria</h2>
-      </div>
-      <div id="lista-categorias" class="lista-categorias">
-        <p class="estado-vazio">Ainda não há dados para agrupar por categoria.</p>
-      </div>
-    </section>
+        <!-- FORMULÁRIO DE TRANSAÇÃO -->
+        <section class="form-section">
+            <h3>Nova Transação</h3>
+            <form id="transacao-form">
+                <div class="input-group">
+                    <label for="tipo">Tipo</label>
+                    <select id="tipo" required>
+                        <option value="">Selecione o tipo</option>
+                        <option value="receita">Receita</option>
+                        <option value="despesa">Despesa</option>
+                    </select>
+                </div>
 
-    <!-- Transações -->
-    <section class="secao">
-      <div class="secao-titulo">
-        <h2>Transações</h2>
-        <button id="btn-nova" class="botao botao-primario botao-pequeno">+ Nova transação</button>
-      </div>
+                <div class="input-group">
+                    <label for="categoria">Categoria</label>
+                    <select id="categoria" required>
+                        <option value="">Primeiro selecione o tipo</option>
+                    </select>
+                </div>
 
-      <div id="lista-transacoes" class="lista-transacoes">
-        <p class="estado-vazio">Nenhuma transação ainda. Toque em "+ Nova transação" para começar.</p>
-      </div>
-    </section>
+                <div class="input-group">
+                    <label for="valor">Valor (R$)</label>
+                    <input type="number" id="valor" step="0.01" min="0" required placeholder="0.00">
+                </div>
 
-  </main>
+                <button type="submit" class="btn">Adicionar Transação</button>
+            </form>
+            <p id="transacao-error" class="error"></p>
+        </section>
 
-  <button id="fab-nova" class="fab" title="Nova transação" aria-label="Nova transação">+</button>
-</section>
-
-<!-- ==================== MODAL: NOVA TRANSAÇÃO ==================== -->
-<div id="modal-fundo" class="modal-fundo" hidden>
-  <div class="modal-cartao" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-    <div class="modal-cabecalho">
-      <h2 id="modal-titulo">Nova transação</h2>
-      <button id="btn-fechar-modal" class="botao-icone" aria-label="Fechar">✕</button>
+        <!-- HISTÓRICO DE TRANSAÇÕES -->
+        <section class="history-section">
+            <h3>Histórico</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Categoria</th>
+                            <th>Valor</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-transacoes">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
-    <div class="alternador" id="alternador-tipo">
-      <button type="button" class="alternador-opcao ativo" data-tipo="receita">Entrada</button>
-      <button type="button" class="alternador-opcao" data-tipo="despesa">Saída</button>
-    </div>
-
-    <form id="form-transacao">
-      <label class="campo">
-        <span>Categoria</span>
-        <select id="input-categoria" required></select>
-      </label>
-
-      <label class="campo">
-        <span>Valor</span>
-        <div class="campo-moeda">
-          <span>R$</span>
-          <input type="number" id="input-valor" name="valor" placeholder="0,00" min="0" step="0.01" inputmode="decimal" required>
-        </div>
-      </label>
-
-      <p id="erro-transacao" class="mensagem-erro" hidden></p>
-
-      <div class="modal-acoes">
-        <button type="button" id="btn-cancelar-transacao" class="botao botao-fantasma">Cancelar</button>
-        <button type="submit" id="btn-salvar-transacao" class="botao botao-primario">
-          <span class="btn-texto">Salvar</span>
-          <span class="btn-spinner" hidden></span>
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Confirmação de exclusão -->
-<div id="modal-confirmar-fundo" class="modal-fundo" hidden>
-  <div class="modal-cartao modal-cartao-pequeno" role="dialog" aria-modal="true">
-    <h2>Remover transação?</h2>
-    <p class="subtitulo">Essa ação não pode ser desfeita.</p>
-    <div class="modal-acoes">
-      <button type="button" id="btn-cancelar-exclusao" class="botao botao-fantasma">Cancelar</button>
-      <button type="button" id="btn-confirmar-exclusao" class="botao botao-perigo">Remover</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div id="toast" class="toast" hidden></div>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
