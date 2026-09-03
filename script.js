@@ -162,6 +162,13 @@ const api = {
         });
     },
 
+    async marcarParcelaMeta(usuario, titulo, indice) {
+        return this.request('/metas/parcela', {
+            method: 'PUT',
+            body: JSON.stringify({ usuario, titulo, indice })
+        });
+    },
+
     async atualizarNomeSobrenome(usuario, nome, sobrenome) {
         return this.request('/atualizar_nome_sobrenome', {
             method: 'PUT',
@@ -201,6 +208,12 @@ const api = {
 // ========================================
 function formatCurrency(value) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+// Versão compacta (sem "R$") usada nos quadradinhos pequenos do cofrinho,
+// onde o espaço é curto.
+function formatCompactCurrency(value) {
+    return formatCurrency(value).replace(/^R\$\s*/, '');
 }
 
 function formatDateBR(dateStr) {
@@ -422,7 +435,8 @@ async function loadDashboardData() {
         state.metas = (metasResp?.metas || []).map(m => ({
             ...m,
             porcentagem_meta: m.salario_liquido ? Math.round((m.meta / m.salario_liquido) * 10000) / 100 : 0,
-            valor_objetivo: m.meta
+            valor_objetivo: m.meta,
+            parcelas: m.parcelas || []
         }));
         renderView(state.currentView);
     } catch (err) {
@@ -845,9 +859,14 @@ function renderTransacoes() {
 // ========================================
 // RENDER: PLANEJAMENTO
 // ========================================
+const TOTAL_PARCELAS_META = 12;
+
 function renderPlanejamento() {
     const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
     const metaTotal = meta ? (meta.valor_objetivo ?? meta.salario_liquido * (meta.porcentagem_meta / 100)) : 0;
+    const parcelasConcluidas = meta ? (meta.parcelas || []) : [];
+    const valorParcela = metaTotal / TOTAL_PARCELAS_META;
+    const valorAtual = parcelasConcluidas.length * valorParcela;
 
     return `
         <div class="view">
@@ -879,17 +898,27 @@ function renderPlanejamento() {
                 <div class="card">
                     <h3 class="mb-md">📊 Resumo da Meta</h3>
                     <div class="summary-list">
+                        <div><strong>Valor Atual:</strong> <span style="color:var(--color-success);font-weight:700;">${formatCurrency(valorAtual)}</span></div>
                         <div><strong>Meta Total:</strong> ${formatCurrency(metaTotal)}</div>
                         <div><strong>Porcentagem:</strong> ${meta.porcentagem_meta}%</div>
                         <div><strong>Salário:</strong> ${formatCurrency(meta.salario_liquido)}</div>
                     </div>
                     <div class="text-center text-muted mb-md" style="background:var(--bg-input);border-radius:12px;padding:16px;">
-                        🎯 Clique nos quadradinhos para marcar como concluído
+                        🎯 Clique nos quadradinhos para marcar uma parcela como guardada. Uma vez marcada, ela fica salva para sempre.
                     </div>
                     <div class="cofrinho-grid">
-                        ${Array.from({length: 12}, (_, i) => `
-                            <div class="cofrinho-cell" data-index="${i}" onclick="toggleCofrinho(this)">${i + 1}</div>
-                        `).join('')}
+                        ${Array.from({length: TOTAL_PARCELAS_META}, (_, i) => {
+                            const concluida = parcelasConcluidas.includes(i);
+                            return `
+                                <div class="cofrinho-cell${concluida ? ' completed' : ''}"
+                                     data-index="${i}"
+                                     data-titulo="${meta.titulo}"
+                                     onclick="${concluida ? '' : `toggleCofrinho(this)`}"
+                                     title="${concluida ? 'Parcela guardada — não pode ser desmarcada' : `Marcar ${formatCurrency(valorParcela)} como guardado`}">
+                                    ${formatCompactCurrency(valorParcela)}
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             ` : `
@@ -1181,8 +1210,42 @@ window.setTheme = (theme) => {
 
 window.maskCurrency = maskCurrency;
 
-window.toggleCofrinho = (el) => {
-    el.classList.toggle('completed');
+window.toggleCofrinho = async (el) => {
+    // Só permite marcar (nunca desmarcar). Uma parcela já concluída não tem
+    // onclick (ver renderPlanejamento), então chegar aqui significa que
+    // ainda está pendente.
+    if (el.classList.contains('completed') || el.classList.contains('loading')) return;
+
+    const indice = parseInt(el.dataset.index, 10);
+    const titulo = el.dataset.titulo;
+    const textoOriginal = el.textContent;
+
+    el.classList.add('loading');
+    el.textContent = '...';
+
+    try {
+        const resp = await api.marcarParcelaMeta(state.user, titulo, indice);
+
+        // Atualiza o estado local com o que o servidor confirmou salvo,
+        // para refletir exatamente o que está persistido no banco.
+        const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
+        if (meta) meta.parcelas = resp.parcelas || meta.parcelas;
+
+        el.classList.remove('loading');
+        el.classList.add('completed');
+        el.onclick = null;
+        el.textContent = textoOriginal;
+        el.title = 'Parcela guardada — não pode ser desmarcada';
+
+        // Atualiza o "Valor Atual" no resumo sem precisar recarregar a página.
+        renderView(state.currentView);
+        showToast('Parcela guardada com sucesso!', 'success');
+    } catch (err) {
+        console.error('Erro ao salvar parcela:', err);
+        el.classList.remove('loading');
+        el.textContent = textoOriginal;
+        showToast('Não foi possível salvar a parcela. Tente novamente.', 'error');
+    }
 };
 
 window.toggleActionMenu = (event, id) => {
