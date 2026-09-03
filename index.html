@@ -1,80 +1,84 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- Google Fonts: Inter -->
-    <link href="https://googleapis.com" rel="stylesheet">
-    <!-- Chart.js para Renderização dos Gráficos -->
-    <script src="https://jsdelivr.net"></script>
-    
-    <!-- Configurações PWA Obrigatórias para Tela Cheia -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Nexus">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#8b7fe8" />
+    <meta name="description" content="Nexus - Plataforma Fintech para gestão financeira inteligente" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Nexus" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Nexus - Gestão Financeira</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
-
-    <!-- Cabeçalho Principal: Escondido no Login/Cadastro via JS -->
-    <header id="main-header" style="display: none;">
-        <div class="header-left">
-            <button id="menu-toggle" class="icon-btn">☰</button>
-            <div class="brand">Nexus</div>
-        </div>
-        <div class="header-right">
-            <button id="pwa-install-btn" class="btn-install" hidden>
-                <span>📲</span> <span class="install-label">Instalar App</span>
-            </button>
-            <button id="theme-toggle" class="icon-btn">🌙</button>
-        </div>
-    </header>
-
-    <div class="app-container">
-        <!-- Barra Lateral Dinâmica: Oculta no Login/Cadastro via JS -->
-        <aside id="sidebar" class="sidebar" style="display: none;">
-            <ul class="nav-list">
-                <li>
-                    <button class="nav-item active" href="#/dashboard">
-                        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
-                    </button>
-                </li>
-                <li>
-                    <button class="nav-item" href="#/transacoes">
-                        <span class="nav-icon">💳</span><span class="nav-text">Transações</span>
-                    </button>
-                </li>
-                <li>
-                    <button class="nav-item" href="#/planejamento">
-                        <span class="nav-icon">🎯</span><span class="nav-text">Planejamento</span>
-                    </button>
-                </li>
-                <li>
-                    <button class="nav-item" href="#/relatorios">
-                        <span class="nav-icon">📈</span><span class="nav-text">Relatórios</span>
-                    </button>
-                </li>
-                <li>
-                    <button class="nav-item" href="#/configuracoes">
-                        <span class="nav-icon">⚙️</span><span class="nav-text">Configurações</span>
-                    </button>
-                </li>
-            </ul>
-            <div class="sidebar-footer">
-                <button id="sidebar-logout" class="nav-item">
-                    <span class="nav-icon">🚪</span><span class="nav-text">Sair</span>
-                </button>
+    <div id="app">
+        <!-- Header -->
+        <header id="main-header">
+            <div class="header-left">
+                <button id="menu-toggle" class="icon-btn" aria-label="Menu">☰</button>
+                <span class="brand">💰 <span class="brand-text">Nexus</span></span>
             </div>
-        </aside>
+            <div class="header-right">
+                <button id="pwa-install-btn" class="btn-install" type="button">
+                    <span aria-hidden="true">📲</span><span class="install-label">Baixar App</span>
+                </button>
+                <button id="theme-toggle" class="icon-btn" aria-label="Alternar tema">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="#/login" id="header-login-link" class="nav-link" style="display:none;">Entrar</a>
+            </div>
+        </header>
 
-        <!-- Container Injetor de Telas -->
-        <main id="main-content">
-            <div id="view-container"></div>
-        </main>
+        <div class="app-container">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="sidebar">
+                <ul class="nav-list">
+                    <li><a href="#/dashboard" class="nav-item active" data-view="dashboard">📊 Dashboard</a></li>
+                    <li><a href="#/transacoes" class="nav-item" data-view="transacoes">💳 Transações</a></li>
+                    <li><a href="#/planejamento" class="nav-item" data-view="planejamento">🎯 Planejamento</a></li>
+                    <li><a href="#/relatorios" class="nav-item" data-view="relatorios">📈 Relatórios</a></li>
+                    <li><a href="#/configuracoes" class="nav-item" data-view="configuracoes">⚙️ Configurações</a></li>
+                </ul>
+                <div class="sidebar-footer">
+                    <button id="sidebar-logout" class="nav-item">🚪 Sair</button>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main id="main-content">
+                <div id="view-container">
+                    <div style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</div>
+                </div>
+            </main>
+        </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+    <script src="script.js?v=3"></script>
+
+    <!-- Registro do Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(reg => reg.unregister());
+        });
+
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(registration => {
+                console.log('SW registrado com sucesso!');
+            })
+            .catch(err => {
+                console.warn('Erro ao registrar SW:', err);
+            });
+    }
+    </script>
 </body>
 </html>
