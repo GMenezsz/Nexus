@@ -657,7 +657,7 @@ function renderTransacoes() {
                             <th>Valor</th>
                             <th>Data</th>
                             <th>Status</th>
-                            <th style="text-align:center;">Ações</th>
+                            <th style="text-align:center;width:60px;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -675,8 +675,12 @@ function renderTransacoes() {
                                     <td data-label="Valor" style="color:${valorColor};">${formatCurrency(tx.valor)}</td>
                                     <td data-label="Data">${formatDateBR(tx.data)}</td>
                                     <td data-label="Status"><span class="badge ${statusClass}">${statusText}</span></td>
-                                    <td class="td-actions">
-                                        <button class="action-dots" onclick="showTransactionActions('${tx.id}')">⋮</button>
+                                    <td class="td-actions" style="text-align:center;position:relative;">
+                                        <button class="action-dots" onclick="toggleActionMenu(event, '${tx.id}')">⋮</button>
+                                        <div id="action-menu-${tx.id}" class="action-menu" style="display:none;position:absolute;right:0;top:100%;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;box-shadow:var(--shadow-md);z-index:100;min-width:120px;padding:4px 0;">
+                                            <button class="action-menu-item" onclick="editTransaction('${tx.id}')" style="display:block;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);cursor:pointer;text-align:left;font-size:0.9rem;">✏️ Editar</button>
+                                            <button class="action-menu-item" onclick="deleteTransaction('${tx.id}')" style="display:block;width:100%;padding:8px 16px;border:none;background:none;color:var(--color-danger);cursor:pointer;text-align:left;font-size:0.9rem;">🗑️ Excluir</button>
+                                        </div>
                                     </td>
                                 </tr>
                             `;
@@ -966,14 +970,26 @@ window.toggleCofrinho = (el) => {
     el.classList.toggle('completed');
 };
 
-window.showTransactionActions = (id) => {
-    const action = confirm(`O que deseja fazer com esta transação?\n\nOK = Editar\nCancelar = Deletar`);
-    if (action) {
-        editTransaction(id);
-    } else {
-        deleteTransaction(id);
+window.toggleActionMenu = (event, id) => {
+    event.stopPropagation();
+    // Fecha todos os menus abertos
+    document.querySelectorAll('.action-menu').forEach(menu => {
+        if (menu.id !== `action-menu-${id}`) {
+            menu.style.display = 'none';
+        }
+    });
+    const menu = document.getElementById(`action-menu-${id}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
     }
 };
+
+// Fecha menus ao clicar fora
+document.addEventListener('click', function() {
+    document.querySelectorAll('.action-menu').forEach(menu => {
+        menu.style.display = 'none';
+    });
+});
 
 window.toggleAllCheckboxes = () => {
     const selectAll = document.getElementById('select-all');
@@ -1001,34 +1017,82 @@ window.bulkDelete = async () => {
         showToast('Selecione ao menos uma transação', 'error');
         return;
     }
-    if (!confirm(`Deletar ${selected.length} transação(ões)?`)) return;
     
-    let deleted = 0;
-    for (const cb of selected) {
-        try {
-            await api.deletarTransacao(state.user, cb.dataset.id);
-            deleted++;
-        } catch (e) { /* ignora */ }
-    }
-    showToast(`${deleted} transações deletadas!`, 'success');
-    await loadDashboardData();
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar exclusão</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja excluir <strong>${selected.length}</strong> transação(ões)? Esta ação não pode ser desfeita.</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-bulk-delete">Excluir</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-bulk-delete').addEventListener('click', async () => {
+        modal.remove();
+        let deleted = 0;
+        for (const cb of selected) {
+            try {
+                await api.deletarTransacao(state.user, cb.dataset.id);
+                deleted++;
+            } catch (e) { /* ignora */ }
+        }
+        showToast(`${deleted} transações deletadas!`, 'success');
+        await loadDashboardData();
+    });
 };
 
 window.editTransaction = (id) => {
+    // Fecha o menu de ações
+    document.querySelectorAll('.action-menu').forEach(menu => menu.style.display = 'none');
+    
     const tx = state.transactions.find(t => String(t.id) === String(id));
     if (!tx) { showToast('Transação não encontrada', 'error'); return; }
     openTransactionModal(tx);
 };
 
 window.deleteTransaction = async (id) => {
-    if (!confirm('Deletar esta transação?')) return;
-    try {
-        await api.deletarTransacao(state.user, id);
-        showToast('Transação deletada!', 'success');
-        await loadDashboardData();
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+    // Fecha o menu de ações
+    document.querySelectorAll('.action-menu').forEach(menu => menu.style.display = 'none');
+    
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar exclusão</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-delete">Excluir</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-delete').addEventListener('click', async () => {
+        modal.remove();
+        try {
+            await api.deletarTransacao(state.user, id);
+            showToast('Transação deletada!', 'success');
+            await loadDashboardData();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    });
 };
 
 window.deleteMeta = async (titulo) => {
@@ -1121,7 +1185,20 @@ function statusPreviewHTML(dataStr) {
 
 window.openTransactionModal = (tx = null) => {
     const isEdicao = !!tx;
-    const tipoInicial = tx ? tx.tipo : 'receita';
+    
+    // Define o tipo padrão baseado na página atual
+    let tipoInicial = 'receita';
+    if (state.currentView === 'receitas') {
+        tipoInicial = 'receita';
+    } else if (state.currentView === 'despesas') {
+        tipoInicial = 'despesa';
+    } else if (tx) {
+        tipoInicial = tx.tipo;
+    }
+    
+    // Se estiver em página específica, bloqueia a mudança de tipo
+    const isRestricted = state.currentView === 'receitas' || state.currentView === 'despesas';
+    
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1133,10 +1210,11 @@ window.openTransactionModal = (tx = null) => {
             <form id="transaction-form">
                 <div class="form-group">
                     <label>Tipo</label>
-                    <select id="tx-tipo" required>
+                    <select id="tx-tipo" required ${isRestricted ? 'disabled' : ''}>
                         <option value="receita" ${tipoInicial === 'receita' ? 'selected' : ''}>💰 Receita</option>
                         <option value="despesa" ${tipoInicial === 'despesa' ? 'selected' : ''}>💸 Despesa</option>
                     </select>
+                    ${isRestricted ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${state.currentView === 'receitas' ? '📌 Página de Receitas - apenas receitas permitidas' : '📌 Página de Despesas - apenas despesas permitidas'}</div>` : ''}
                 </div>
                 <div class="form-group">
                     <label>Categoria</label>
@@ -1169,17 +1247,19 @@ window.openTransactionModal = (tx = null) => {
     const valorInput = document.getElementById('tx-valor');
     const statusPreview = document.getElementById('tx-status-preview');
 
-    // Atualiza o seletor de categoria quando o tipo muda
-    tipoSelect.addEventListener('change', function() {
-        const tipo = this.value;
-        const categorias = state.categories[tipo] || [];
-        categoriaSelect.innerHTML = categorias.map(cat => 
-            `<option value="${cat}">${cat}</option>`
-        ).join('');
-        if (categorias.length === 0) {
-            categoriaSelect.innerHTML = `<option value="">Nenhuma categoria disponível</option>`;
-        }
-    });
+    // Atualiza o seletor de categoria quando o tipo muda (apenas se não estiver restrito)
+    if (!isRestricted) {
+        tipoSelect.addEventListener('change', function() {
+            const tipo = this.value;
+            const categorias = state.categories[tipo] || [];
+            categoriaSelect.innerHTML = categorias.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
+            if (categorias.length === 0) {
+                categoriaSelect.innerHTML = `<option value="">Nenhuma categoria disponível</option>`;
+            }
+        });
+    }
 
     dataInput.value = tx ? tx.data : new Date().toISOString().split('T')[0];
     if (tx) {
