@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v9');
+console.log('🔵 SCRIPT CARREGADO - v10');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -526,7 +526,7 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
-    // Função para renderizar a legenda estilizada
+    // Função para renderizar a legenda estilizada (ESTILO CORRETO - sem traço, com palavras em negrito)
     function renderStyledLegend(tipo) {
         const totals = groupByCategoria(tipo);
         const entries = Object.entries(totals);
@@ -906,7 +906,7 @@ function renderRelatorios() {
     const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     
-    // Função para renderizar a legenda estilizada (igual da dashboard)
+    // Função para renderizar a legenda estilizada (ESTILO CORRETO - sem traço, com palavras em negrito)
     function renderStyledLegend(tipo) {
         const totals = groupByCategoria(tipo);
         const entries = Object.entries(totals);
