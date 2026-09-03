@@ -801,4 +801,61 @@ window.editTransaction = (id) => {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     // Aplicar tema
-    const theme = localStorage.getItem('nexus_theme') ||
+    const theme = localStorage.getItem('nexus_theme') || 'light';
+    setTheme(theme);
+
+    // Header user
+    const user = localStorage.getItem(STORAGE_KEY);
+    if (user) {
+        document.getElementById('header-login-link').style.display = 'none';
+        document.getElementById('header-user').style.display = 'inline';
+        document.getElementById('header-user').textContent = `👋 ${state.userName || 'Usuário'}`;
+    }
+
+    // Eventos
+    document.getElementById('menu-toggle')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        setTheme(state.theme === 'light' ? 'dark' : 'light');
+    });
+
+    document.getElementById('sidebar-logout')?.addEventListener('click', doLogout);
+
+    // Navegação
+    document.querySelectorAll('#sidebar .nav-item[href]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const view = el.getAttribute('href').replace('#/', '');
+            navigate(view);
+        });
+    });
+
+    // Router
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Inicializar
+    if (checkSession()) {
+        document.getElementById('header-login-link').style.display = 'none';
+        document.getElementById('header-user').style.display = 'inline';
+        loadDashboardData();
+    } else {
+        navigate('login');
+    }
+});
+
+// CSS para animações
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(40px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    .cofrinho-cell.completed {
+        background: var(--color-success, #4caf84);
+        border-color: var(--color-success, #4caf84);
+        color: #fff;
+    }
+`;
+document.head.appendChild(style);
