@@ -2,8 +2,8 @@
   "name": "Nexus - Gestão Financeira",
   "short_name": "Nexus",
   "description": "Plataforma Fintech para gestão financeira",
-  "start_url": "/Nexus/",
-  "scope": "/Nexus/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#8b7fe8",
@@ -11,13 +11,13 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/Nexus/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Nexus/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
