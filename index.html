@@ -68,7 +68,7 @@
     <!-- Registro do Service Worker -->
     <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register('service-worker.js')
             .then(registration => {
                 console.log('✅ SW registrado com sucesso!');
             })
