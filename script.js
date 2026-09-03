@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v11');
+console.log('🔵 SCRIPT CARREGADO - v10');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -34,6 +34,45 @@ let deferredInstallPrompt = null;
 const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71'];
 const dashboardCharts = { receitas: null, despesas: null, balanco: null };
 const relatoriosCharts = { receitas: null, despesas: null };
+
+// ========================================
+// LEGENDA DE CATEGORIAS (única fonte da verdade)
+// Usada no Dashboard, em Relatórios e sempre que o gráfico de rosca
+// é (re)desenhado, para que o texto fique idêntico às cores do gráfico.
+// ========================================
+function renderCategoriaLegend(labels, values, colors) {
+    const total = (values || []).reduce((sum, v) => sum + v, 0);
+
+    if (!labels || labels.length === 0 || total === 0) {
+        return `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
+    }
+
+    return labels.map((categoria, i) => {
+        const valor = values[i];
+        const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+        const color = colors ? colors[i] : CHART_COLORS[i % CHART_COLORS.length];
+        return `
+            <div class="legend-row">
+                <div class="legend-row-left">
+                    <span class="legend-dot" style="background:${color}"></span>
+                    <span class="legend-category">${categoria}</span>
+                </div>
+                <div class="legend-row-right">
+                    <span class="legend-value">${formatCurrency(valor)}</span>
+                    <span class="legend-pct">(${pct}%)</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Atalho: monta a legenda direto a partir dos totais agrupados por categoria
+function renderCategoriaLegendFromTotals(totals) {
+    const labels = Object.keys(totals);
+    const values = Object.values(totals);
+    const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+    return renderCategoriaLegend(labels, values, colors);
+}
 
 // ========================================
 // API CLIENT
@@ -526,34 +565,6 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
-    // Função para renderizar a legenda estilizada - ESTILO CORRETO (sem traço, palavras em negrito)
-    function renderStyledLegend(tipo) {
-        const totals = groupByCategoria(tipo);
-        const entries = Object.entries(totals);
-        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
-        
-        if (entries.length === 0 || total === 0) {
-            return `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
-        }
-        
-        return entries.map(([categoria, valor], index) => {
-            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-            const color = CHART_COLORS[index % CHART_COLORS.length];
-            return `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color};flex-shrink:0;border:1px solid rgba(0,0,0,0.05);"></span>
-                        <span style="font-weight:600;color:var(--text-primary);font-size:0.95rem;">${categoria}</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
-                        <span style="color:var(--text-muted);font-size:0.8rem;">(${pct}%)</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
     return `
         <div class="view">
             <div class="dashboard-header">
@@ -589,8 +600,8 @@ function renderDashboard() {
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-receitas"></canvas></div>
-                    <div id="legend-receitas" style="margin-top:12px;">
-                        ${renderStyledLegend('receita')}
+                    <div id="legend-receitas" class="legend-list" style="margin-top:12px;">
+                        ${renderCategoriaLegendFromTotals(groupByCategoria('receita'))}
                     </div>
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(receitas)} Total
@@ -602,8 +613,8 @@ function renderDashboard() {
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-despesas"></canvas></div>
-                    <div id="legend-despesas" style="margin-top:12px;">
-                        ${renderStyledLegend('despesa')}
+                    <div id="legend-despesas" class="legend-list" style="margin-top:12px;">
+                        ${renderCategoriaLegendFromTotals(groupByCategoria('despesa'))}
                     </div>
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(despesas)} Total
@@ -719,10 +730,8 @@ function renderDoughnutChart(canvasId, legendId, totals, key, chartsObj) {
     });
 
     if (legendEl) {
-        legendEl.innerHTML = labels.map((label, i) => {
-            const pct = ((values[i] / total) * 100).toFixed(1);
-            return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${label} — ${formatCurrency(values[i])} (${pct}%)</div>`;
-        }).join('');
+        legendEl.classList.add('legend-list');
+        legendEl.innerHTML = renderCategoriaLegend(labels, values, colors);
     }
 }
 
@@ -906,34 +915,6 @@ function renderRelatorios() {
     const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     
-    // Função para renderizar a legenda estilizada - ESTILO CORRETO (sem traço, palavras em negrito)
-    function renderStyledLegend(tipo) {
-        const totals = groupByCategoria(tipo);
-        const entries = Object.entries(totals);
-        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
-        
-        if (entries.length === 0 || total === 0) {
-            return `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
-        }
-        
-        return entries.map(([categoria, valor], index) => {
-            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-            const color = CHART_COLORS[index % CHART_COLORS.length];
-            return `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color};flex-shrink:0;border:1px solid rgba(0,0,0,0.05);"></span>
-                        <span style="font-weight:600;color:var(--text-primary);font-size:0.95rem;">${categoria}</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
-                        <span style="color:var(--text-muted);font-size:0.8rem;">(${pct}%)</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-    
     function renderBalancoMensal() {
         return `
             <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
@@ -973,8 +954,8 @@ function renderRelatorios() {
                 <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
                     <canvas id="chart-rel-receitas"></canvas>
                 </div>
-                <div id="legend-rel-receitas" style="margin-top:12px;">
-                    ${renderStyledLegend('receita')}
+                <div id="legend-rel-receitas" class="legend-list" style="margin-top:12px;">
+                    ${renderCategoriaLegendFromTotals(groupByCategoria('receita'))}
                 </div>
                 ${Object.keys(groupByCategoria('receita')).length > 0 ? `
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
@@ -990,8 +971,8 @@ function renderRelatorios() {
                 <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
                     <canvas id="chart-rel-despesas"></canvas>
                 </div>
-                <div id="legend-rel-despesas" style="margin-top:12px;">
-                    ${renderStyledLegend('despesa')}
+                <div id="legend-rel-despesas" class="legend-list" style="margin-top:12px;">
+                    ${renderCategoriaLegendFromTotals(groupByCategoria('despesa'))}
                 </div>
                 ${Object.keys(groupByCategoria('despesa')).length > 0 ? `
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
