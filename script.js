@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v7');
+console.log('🔵 SCRIPT CARREGADO - v8');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -33,6 +33,7 @@ let deferredInstallPrompt = null;
 // Paleta de cores para os gráficos por categoria
 const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71'];
 const dashboardCharts = { receitas: null, despesas: null, balanco: null };
+const relatoriosCharts = { receitas: null, despesas: null };
 
 // ========================================
 // API CLIENT
@@ -416,7 +417,14 @@ function renderView(view) {
         case 'receitas': container.innerHTML = renderTransacoes(); break;
         case 'despesas': container.innerHTML = renderTransacoes(); break;
         case 'planejamento': container.innerHTML = renderPlanejamento(); break;
-        case 'relatorios': container.innerHTML = renderRelatorios(); break;
+        case 'relatorios': 
+            container.innerHTML = renderRelatorios(); 
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    renderRelatoriosCharts();
+                }
+            }, 100);
+            break;
         case 'configuracoes': container.innerHTML = renderConfiguracoes(); break;
         default: container.innerHTML = '<h2>Página não encontrada</h2>';
     }
@@ -436,6 +444,9 @@ function checkChartJs() {
             console.log('Chart.js carregado com sucesso!');
             if (state.currentView === 'dashboard') {
                 setTimeout(renderDashboardCharts, 100);
+            }
+            if (state.currentView === 'relatorios') {
+                setTimeout(renderRelatoriosCharts, 100);
             }
         };
         script.onerror = () => {
@@ -514,9 +525,6 @@ function renderDashboard() {
     const despesas = state.resumo?.despesas || 0;
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
-
-    console.log('📊 Renderizando Dashboard - v7');
-    console.log('Receitas:', receitas, 'Despesas:', despesas);
 
     // Função para renderizar a legenda estilizada
     function renderStyledLegend(tipo) {
@@ -660,14 +668,14 @@ function groupByCategoria(tipo) {
     return totals;
 }
 
-function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
+function renderDoughnutChart(canvasId, legendId, totals, key, chartsObj) {
     const canvas = document.getElementById(canvasId);
     const legendEl = document.getElementById(legendId);
     if (!canvas) return;
 
-    if (dashboardCharts[key]) {
-        dashboardCharts[key].destroy();
-        dashboardCharts[key] = null;
+    if (chartsObj[key]) {
+        chartsObj[key].destroy();
+        chartsObj[key] = null;
     }
 
     const labels = Object.keys(totals);
@@ -676,6 +684,9 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
 
     if (labels.length === 0 || total === 0) {
         canvas.style.display = 'none';
+        if (legendEl) {
+            legendEl.innerHTML = `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
+        }
         return;
     }
     canvas.style.display = '';
@@ -683,10 +694,13 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
     const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
 
     if (typeof Chart === 'undefined') {
+        if (legendEl) {
+            legendEl.innerHTML = `<p class="text-muted text-center">Não foi possível carregar a biblioteca de gráficos</p>`;
+        }
         return;
     }
 
-    dashboardCharts[key] = new Chart(canvas.getContext('2d'), {
+    chartsObj[key] = new Chart(canvas.getContext('2d'), {
         type: 'doughnut',
         data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
         options: {
@@ -703,14 +717,29 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
             }
         }
     });
+
+    if (legendEl) {
+        legendEl.innerHTML = labels.map((label, i) => {
+            const pct = ((values[i] / total) * 100).toFixed(1);
+            return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${label} — ${formatCurrency(values[i])} (${pct}%)</div>`;
+        }).join('');
+    }
 }
 
 function renderDashboardCharts() {
     const receitasTotals = groupByCategoria('receita');
     const despesasTotals = groupByCategoria('despesa');
     
-    renderDoughnutChart('chart-receitas', 'legend-receitas', receitasTotals, 'receitas', state.resumo?.receitas || 0);
-    renderDoughnutChart('chart-despesas', 'legend-despesas', despesasTotals, 'despesas', state.resumo?.despesas || 0);
+    renderDoughnutChart('chart-receitas', 'legend-receitas', receitasTotals, 'receitas', dashboardCharts);
+    renderDoughnutChart('chart-despesas', 'legend-despesas', despesasTotals, 'despesas', dashboardCharts);
+}
+
+function renderRelatoriosCharts() {
+    const receitasTotals = groupByCategoria('receita');
+    const despesasTotals = groupByCategoria('despesa');
+    
+    renderDoughnutChart('chart-rel-receitas', 'legend-rel-receitas', receitasTotals, 'receitas', relatoriosCharts);
+    renderDoughnutChart('chart-rel-despesas', 'legend-rel-despesas', despesasTotals, 'despesas', relatoriosCharts);
 }
 
 // ========================================
@@ -877,33 +906,6 @@ function renderRelatorios() {
     const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     
-    function renderCategoryList(tipo) {
-        const totals = groupByCategoria(tipo);
-        const entries = Object.entries(totals);
-        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
-        
-        if (entries.length === 0 || total === 0) {
-            return `<p class="text-muted text-center" style="padding:16px 0;">Nenhuma ${tipo === 'receita' ? 'receita' : 'despesa'} cadastrada</p>`;
-        }
-        
-        return entries.map(([categoria, valor], index) => {
-            const pct = total > 0 ? ((valor / total) * 100).toFixed(2) : 0;
-            const color = CHART_COLORS[index % CHART_COLORS.length];
-            return `
-                <div style="padding:12px 0;border-bottom:1px solid var(--border-color);">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                        <span style="font-weight:600;font-size:1rem;color:var(--text-primary);">${categoria}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding-left:22px;">
-                        <span style="font-weight:500;color:var(--text-secondary);">${formatCurrency(valor)}</span>
-                        <span style="color:var(--text-muted);font-size:0.85rem;">Porcentagem: ${pct}%</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-    
     function renderBalancoMensal() {
         return `
             <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
@@ -937,24 +939,30 @@ function renderRelatorios() {
             </div>
 
             <div class="card" style="margin-top:24px;">
-                <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Receitas por Categorias</h4>
-                <div style="margin-top:8px;">
-                    ${renderCategoryList('receita')}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h4 style="color:var(--text-secondary);font-weight:500;">Receitas por Categorias</h4>
                 </div>
+                <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
+                    <canvas id="chart-rel-receitas"></canvas>
+                </div>
+                <div id="legend-rel-receitas" style="margin-top:12px;"></div>
                 ${Object.keys(groupByCategoria('receita')).length > 0 ? `
-                    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                    <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(receitas)} Total
                     </div>
                 ` : ''}
             </div>
 
             <div class="card" style="margin-top:24px;">
-                <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Despesas por Categorias</h4>
-                <div style="margin-top:8px;">
-                    ${renderCategoryList('despesa')}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h4 style="color:var(--text-secondary);font-weight:500;">Despesas por Categorias</h4>
                 </div>
+                <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
+                    <canvas id="chart-rel-despesas"></canvas>
+                </div>
+                <div id="legend-rel-despesas" style="margin-top:12px;"></div>
                 ${Object.keys(groupByCategoria('despesa')).length > 0 ? `
-                    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                    <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(despesas)} Total
                     </div>
                 ` : ''}
