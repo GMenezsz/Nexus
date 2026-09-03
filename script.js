@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v10');
+console.log('🔵 SCRIPT CARREGADO - v11');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -526,7 +526,7 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
-    // Função para renderizar a legenda estilizada (ESTILO CORRETO - sem traço, com palavras em negrito)
+    // Função para renderizar a legenda estilizada - ESTILO CORRETO (sem traço, palavras em negrito)
     function renderStyledLegend(tipo) {
         const totals = groupByCategoria(tipo);
         const entries = Object.entries(totals);
@@ -540,10 +540,10 @@ function renderDashboard() {
             const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
             const color = CHART_COLORS[index % CHART_COLORS.length];
             return `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                        <span style="font-weight:500;color:var(--text-primary);">${categoria}</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color};flex-shrink:0;border:1px solid rgba(0,0,0,0.05);"></span>
+                        <span style="font-weight:600;color:var(--text-primary);font-size:0.95rem;">${categoria}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
@@ -906,7 +906,7 @@ function renderRelatorios() {
     const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     
-    // Função para renderizar a legenda estilizada (ESTILO CORRETO - sem traço, com palavras em negrito)
+    // Função para renderizar a legenda estilizada - ESTILO CORRETO (sem traço, palavras em negrito)
     function renderStyledLegend(tipo) {
         const totals = groupByCategoria(tipo);
         const entries = Object.entries(totals);
@@ -920,10 +920,10 @@ function renderRelatorios() {
             const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
             const color = CHART_COLORS[index % CHART_COLORS.length];
             return `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                        <span style="font-weight:500;color:var(--text-primary);">${categoria}</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${color};flex-shrink:0;border:1px solid rgba(0,0,0,0.05);"></span>
+                        <span style="font-weight:600;color:var(--text-primary);font-size:0.95rem;">${categoria}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
