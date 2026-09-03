@@ -690,11 +690,16 @@ tr:hover td { background: var(--bg-input); }
         box-shadow: var(--shadow-md);
     }
     .sidebar.open { left: 0; }
-    .sidebar::before {
+    /* Fundo escurecido atrás do menu — só existe quando o menu está aberto.
+       Antes ficava sempre "ligado" (mesmo com o menu fechado) e, por ser
+       position:fixed, cobria a tela inteira de forma invisível, bloqueando
+       toques em qualquer parte da página no celular (inclusive no login). */
+    .sidebar.open::before {
         content: "";
         position: fixed;
         inset: 64px 0 0 0;
         z-index: -1;
+        background: rgba(0, 0, 0, 0.4);
     }
     #main-content { padding: 16px; }
     .card-grid { grid-template-columns: 1fr 1fr; }
