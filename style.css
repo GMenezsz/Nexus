@@ -42,6 +42,8 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+html, body { overflow-x: hidden; max-width: 100%; }
 body {
     font-family: 'Inter', sans-serif;
     background: var(--bg-primary);
@@ -49,6 +51,8 @@ body {
     transition: all 0.3s ease;
     min-height: 100vh;
 }
+img, svg, canvas { max-width: 100%; height: auto; }
+button, input, select, textarea { font-family: inherit; }
 
 /* ========================================
    UTILITÁRIOS DE ESPAÇAMENTO
@@ -109,12 +113,54 @@ body {
     font-size: 0.85rem;
     color: var(--text-secondary);
 }
-.legend-item { display: flex; align-items: center; gap: 8px; }
+
+/* Legenda de categorias (Receitas/Despesas por Categoria) — usada no
+   Dashboard e em Relatórios. Bolinha colorida + nome da categoria,
+   sem traços, igual às cores do gráfico. */
+.legend-list { display: flex; flex-direction: column; }
+.legend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+.legend-row:last-child { border-bottom: none; }
+.legend-row-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.legend-row-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
 .legend-dot {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     flex-shrink: 0;
+}
+.legend-category {
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+.legend-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+.legend-pct {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    white-space: nowrap;
 }
 
 #main-header {
@@ -268,6 +314,11 @@ body {
     padding: 24px;
     overflow-y: auto;
     max-height: calc(100vh - 64px);
+    min-width: 0;
+}
+#main-content > .view {
+    max-width: 1280px;
+    margin: 0 auto;
 }
 
 .view { animation: fadeIn 0.3s ease; }
@@ -602,6 +653,19 @@ tr:hover td { background: var(--bg-input); }
     to { opacity: 1; transform: translateX(0); }
 }
 
+/* Monitores grandes: evita que os cards fiquem esticados demais */
+@media (min-width: 1400px) {
+    #main-content { padding: 32px 40px; }
+    .card-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+}
+
+/* Tablets (retrato e paisagem) */
+@media (max-width: 1024px) {
+    .sidebar { width: 190px; }
+    #main-content { padding: 20px; }
+    .card-grid-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}
+
 @media (max-width: 768px) {
     .sidebar {
         position: fixed;
@@ -622,6 +686,7 @@ tr:hover td { background: var(--bg-input); }
     }
     #main-content { padding: 16px; }
     .card-grid { grid-template-columns: 1fr 1fr; }
+    .card-grid-2 { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
     .login-container { margin: 20px 16px; padding: 24px; }
     .modal { padding: 24px; margin: 16px; }
@@ -631,6 +696,7 @@ tr:hover td { background: var(--bg-input); }
     .btn-install { padding: 8px 10px; }
     .page-header, .dashboard-header { align-items: stretch; }
     .page-header .btn-primary, .dashboard-header .btn-primary { width: 100%; }
+    .chart-wrap { max-width: 200px; height: 200px; }
 }
 
 @media (max-width: 480px) {
@@ -643,11 +709,16 @@ tr:hover td { background: var(--bg-input); }
     .summary-list { gap: var(--space-md); }
     h1 { font-size: 1.3rem; }
     .modal { padding: 20px; }
+    .card { padding: 16px; }
+    .legend-row { padding: 8px 0; }
+    .legend-row-right { margin-left: 22px; }
 }
 
 @media (max-width: 360px) {
     .header-left .brand { font-size: 1rem; }
     .icon-btn { font-size: 1.05rem; padding: 4px 6px; }
     .btn-install span:first-child { font-size: 1rem; }
+    .card .card-value { font-size: 1.3rem; }
+    .legend-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .legend-row-right { margin-left: 22px; }
 }
-
