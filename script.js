@@ -21,7 +21,8 @@ const state = {
     transactions: [],
     metas: [],
     resumo: null,
-    categories: { receita: [], despesa: [] }
+    categories: { receita: [], despesa: [] },
+    filterType: null // 'receita', 'despesa', ou null para todos
 };
 
 // Guarda o evento de instalação da PWA até o usuário clicar no botão
@@ -280,8 +281,9 @@ function showToast(message, type = 'info') {
 // ========================================
 // ROTEAMENTO
 // ========================================
-function navigate(view) {
+function navigate(view, filterType = null) {
     state.currentView = view;
+    state.filterType = filterType;
     window.location.hash = `#/${view}`;
     renderView(view);
     updateSidebarActive(view);
@@ -361,6 +363,7 @@ function doLogout() {
     state.userName = null;
     state.userFullName = null;
     state.userFoto = null;
+    state.filterType = null;
     
     navigate('login');
 }
@@ -401,6 +404,8 @@ function renderView(view) {
         case 'login': container.innerHTML = renderLogin(); break;
         case 'dashboard': container.innerHTML = renderDashboard(); renderDashboardCharts(); break;
         case 'transacoes': container.innerHTML = renderTransacoes(); break;
+        case 'receitas': container.innerHTML = renderTransacoes(); break;
+        case 'despesas': container.innerHTML = renderTransacoes(); break;
         case 'planejamento': container.innerHTML = renderPlanejamento(); break;
         case 'relatorios': container.innerHTML = renderRelatorios(); break;
         case 'configuracoes': container.innerHTML = renderConfiguracoes(); break;
@@ -481,17 +486,20 @@ function renderDashboard() {
             </div>
 
             <div class="card-grid">
-                <div class="card stat-info">
+                <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
                     <div class="card-title">💰 Saldo Atual</div>
                     <div class="card-value">${formatCurrency(saldo)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver todas</div>
                 </div>
-                <div class="card stat-success">
+                <div class="card stat-success" style="cursor:pointer;" onclick="navigate('receitas')">
                     <div class="card-title">📈 Receitas</div>
                     <div class="card-value">${formatCurrency(receitas)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver receitas</div>
                 </div>
-                <div class="card stat-danger">
+                <div class="card stat-danger" style="cursor:pointer;" onclick="navigate('despesas')">
                     <div class="card-title">📉 Despesas</div>
                     <div class="card-value">${formatCurrency(despesas)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver despesas</div>
                 </div>
             </div>
 
@@ -602,25 +610,46 @@ function renderTransacoes() {
     const saldo = state.resumo?.saldo || 0;
     const receitas = state.resumo?.receitas || 0;
     const despesas = state.resumo?.despesas || 0;
-    const transacoes = state.transactions || [];
+    
+    let transacoes = state.transactions || [];
+    
+    // Aplica filtro baseado na view atual
+    const view = state.currentView;
+    if (view === 'receitas') {
+        transacoes = transacoes.filter(t => t.tipo === 'receita');
+    } else if (view === 'despesas') {
+        transacoes = transacoes.filter(t => t.tipo === 'despesa');
+    }
+    
+    const titulo = view === 'receitas' ? '💰 Receitas' : view === 'despesas' ? '💸 Despesas' : '💳 Transações';
+    const showFilterBanner = view === 'receitas' || view === 'despesas';
 
     return `
         <div class="view">
             <div class="page-header">
-                <h1>💳 Transações</h1>
+                <h1>${titulo}</h1>
                 <button class="btn-primary" onclick="openTransactionModal()">+ Nova Transação</button>
             </div>
 
+            ${showFilterBanner ? `
+                <div class="card" style="margin-bottom:16px;background:var(--bg-input);border-color:${view === 'receitas' ? 'var(--color-success)' : 'var(--color-danger)'};">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                        <span><strong>${view === 'receitas' ? '📈' : '📉'} Mostrando apenas ${view === 'receitas' ? 'Receitas' : 'Despesas'}</strong></span>
+                        <button class="btn-secondary" onclick="navigate('transacoes')">Ver todas →</button>
+                    </div>
+                </div>
+            ` : ''}
+
             <div class="card-grid">
-                <div class="card stat-info">
+                <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
                     <div class="card-title">💰 Saldo</div>
                     <div class="card-value">${formatCurrency(saldo)}</div>
                 </div>
-                <div class="card stat-success">
+                <div class="card stat-success" style="cursor:pointer;" onclick="navigate('receitas')">
                     <div class="card-title">📈 Receitas</div>
                     <div class="card-value">${formatCurrency(receitas)}</div>
                 </div>
-                <div class="card stat-danger">
+                <div class="card stat-danger" style="cursor:pointer;" onclick="navigate('despesas')">
                     <div class="card-title">📉 Despesas</div>
                     <div class="card-value">${formatCurrency(despesas)}</div>
                 </div>
@@ -637,6 +666,7 @@ function renderTransacoes() {
                             <th style="width:30px;">
                                 <input type="checkbox" id="select-all" onchange="toggleAllCheckboxes()" />
                             </th>
+                            <th>Tipo</th>
                             <th>Categoria</th>
                             <th>Valor</th>
                             <th>Data</th>
@@ -646,15 +676,17 @@ function renderTransacoes() {
                     </thead>
                     <tbody>
                         ${transacoes.length === 0 ? `
-                            <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
                         ` : transacoes.map(tx => {
                             const isPago = tx.status === 'pago' || tx.status === 'efetuada';
                             const statusText = isPago ? '✅ Paga' : '⏳ Pendente';
                             const statusClass = isPago ? 'badge-success' : 'badge-warning';
                             const valorColor = tx.tipo === 'receita' ? 'var(--color-success)' : 'var(--color-danger)';
+                            const tipoIcon = tx.tipo === 'receita' ? '📈' : '📉';
                             return `
                                 <tr>
                                     <td class="td-checkbox"><input type="checkbox" class="row-select" data-id="${tx.id}" onchange="updateBulkDeleteButton()" /></td>
+                                    <td data-label="Tipo">${tipoIcon} ${tx.tipo}</td>
                                     <td data-label="Categoria">${tx.categoria}</td>
                                     <td data-label="Valor" style="color:${valorColor};">${formatCurrency(tx.valor)}</td>
                                     <td data-label="Data">${formatDateBR(tx.data)}</td>
