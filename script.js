@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v8');
+console.log('🔵 SCRIPT CARREGADO - v9');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -906,6 +906,34 @@ function renderRelatorios() {
     const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
     
+    // Função para renderizar a legenda estilizada (igual da dashboard)
+    function renderStyledLegend(tipo) {
+        const totals = groupByCategoria(tipo);
+        const entries = Object.entries(totals);
+        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
+        
+        if (entries.length === 0 || total === 0) {
+            return `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
+        }
+        
+        return entries.map(([categoria, valor], index) => {
+            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+            const color = CHART_COLORS[index % CHART_COLORS.length];
+            return `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        <span style="font-weight:500;color:var(--text-primary);">${categoria}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;">(${pct}%)</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
     function renderBalancoMensal() {
         return `
             <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
@@ -945,7 +973,9 @@ function renderRelatorios() {
                 <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
                     <canvas id="chart-rel-receitas"></canvas>
                 </div>
-                <div id="legend-rel-receitas" style="margin-top:12px;"></div>
+                <div id="legend-rel-receitas" style="margin-top:12px;">
+                    ${renderStyledLegend('receita')}
+                </div>
                 ${Object.keys(groupByCategoria('receita')).length > 0 ? `
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(receitas)} Total
@@ -960,7 +990,9 @@ function renderRelatorios() {
                 <div class="chart-wrap" style="max-width:220px;height:180px;margin:0 auto 12px;">
                     <canvas id="chart-rel-despesas"></canvas>
                 </div>
-                <div id="legend-rel-despesas" style="margin-top:12px;"></div>
+                <div id="legend-rel-despesas" style="margin-top:12px;">
+                    ${renderStyledLegend('despesa')}
+                </div>
                 ${Object.keys(groupByCategoria('despesa')).length > 0 ? `
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
                         ${formatCurrency(despesas)} Total
