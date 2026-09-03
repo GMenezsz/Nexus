@@ -1,350 +1,57 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="light">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus - Fintech PWA</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="icons/icon-192.png">
-    <meta name="theme-color" content="#4f46e5">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#f5f0ff" />
+    <meta name="description" content="Nexus - Plataforma Fintech para gestão financeira inteligente" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <title>Nexus - Gestão Financeira</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <header id="global-header" class="header">
-        <div class="header-brand">
-            <button id="menu-toggle" class="menu-toggle-btn" aria-label="Menu" hidden>
-                <span></span><span></span><span></span>
-            </button>
-            <h1 class="logo">Nexus</h1>
-        </div>
-        <div class="header-actions" id="header-public-actions">
-            <a href="#inicio" class="nav-link" data-i18n="nav_home">Início</a>
-            <button id="btn-login-open" class="btn btn-outline" data-i18n="nav_login">Fazer Login</button>
-            <button id="btn-pwa-install" class="btn btn-primary" data-i18n="nav_download">Download App</button>
-        </div>
-        <div class="header-actions" id="header-private-actions" hidden>
-            <div class="user-profile-badge" id="user-profile-shortcut" role="button" title="Configurações">
-                <img id="header-user-avatar" src="icons/default-avatar.png" alt="Avatar">
-                <span id="header-user-name">Carregando...</span>
+    <div id="app">
+        <!-- Header -->
+        <header id="main-header">
+            <div class="header-left">
+                <button id="menu-toggle" class="icon-btn" aria-label="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <span class="brand">Nexus</span>
             </div>
-        </div>
-    </header>
+            <div class="header-right">
+                <button id="pwa-install-btn" class="btn-primary btn-sm" style="display:none;">📲 Download App</button>
+                <button id="theme-toggle" class="icon-btn" aria-label="Alternar tema">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="#/login" id="header-login-link" class="nav-link">Entrar</a>
+            </div>
+        </header>
 
-    <div class="app-layout">
-        <aside id="app-sidebar" class="sidebar" hidden>
-            <nav class="sidebar-nav">
-                <a href="#dashboard" class="sidebar-item active" data-target="dashboard">
-                    <span class="icon">📊</span> <span class="label" data-i18n="menu_dashboard">Dashboard</span>
-                </a>
-                <a href="#transacoes" class="sidebar-item" data-target="transacoes">
-                    <span class="icon">💳</span> <span class="label" data-i18n="menu_transacoes">Transações</span>
-                </a>
-                <a href="#planejamento" class="sidebar-item" data-target="planejamento">
-                    <span class="icon">🎯</span> <span class="label" data-i18n="menu_planejamento">Planejamento</span>
-                </a>
-                <a href="#relatorios" class="sidebar-item" data-target="relatorios">
-                    <span class="icon">📈</span> <span class="label" data-i18n="menu_relatorios">Relatórios</span>
-                </a>
-                <a href="#configuracoes" class="sidebar-item" data-target="configuracoes">
-                    <span class="icon">⚙️</span> <span class="label" data-i18n="menu_configuracoes">Configurações</span>
-                </a>
+        <div class="app-container">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="sidebar collapsed">
+                <ul class="nav-list">
+                    <li><a href="#/dashboard" class="nav-item" data-tooltip="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></li>
+                    <li><a href="#/transacoes" class="nav-item" data-tooltip="Transações"><span class="nav-icon">💳</span><span class="nav-label">Transações</span></a></li>
+                    <li><a href="#/planejamento" class="nav-item" data-tooltip="Planejamento"><span class="nav-icon">🎯</span><span class="nav-label">Planejamento</span></a></li>
+                    <li><a href="#/relatorios" class="nav-item" data-tooltip="Relatórios"><span class="nav-icon">📈</span><span class="nav-label">Relatórios</span></a></li>
+                    <li><a href="#/configuracoes" class="nav-item" data-tooltip="Configurações"><span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span></a></li>
+                </ul>
+                <div class="sidebar-footer">
+                    <button id="sidebar-logout" class="nav-item" data-tooltip="Sair"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
+                </div>
             </nav>
-        </aside>
 
-        <main id="main-content" class="main-content">
-            
-            <section id="view-auth" class="view active-view">
-                <div class="auth-container">
-                    <div class="auth-card">
-                        <div class="auth-tabs">
-                            <button class="tab-btn active" data-tab="login" data-i18n="auth_tab_login">Entrar</button>
-                            <button class="tab-btn" data-tab="register" data-i18n="auth_tab_register">Cadastrar Nova Conta</button>
-                        </div>
-                        
-                        <form id="form-login" class="auth-form">
-                            <div class="input-group">
-                                <label data-i18n="label_usuario">Usuário</label>
-                                <input type="text" name="usuario" required autocomplete="username">
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_senha">Senha</label>
-                                <input type="password" name="senha" required autocomplete="current-password">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_entrar">Entrar</button>
-                        </form>
-
-                        <form id="form-register" class="auth-form" hidden>
-                            <div class="input-group">
-                                <label data-i18n="label_nome">Nome</label>
-                                <input type="text" name="nome" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_sobrenome">Sobrenome</label>
-                                <input type="text" name="sobrenome" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_usuario">Usuário</label>
-                                <input type="text" name="usuario" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_senha">Senha</label>
-                                <input type="password" name="senha" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_cadastrar">Criar Conta</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
-
-            <section id="view-dashboard" class="view" hidden>
-                <div class="welcome-banner">
-                    <h2 id="greeting-text">Olá, Nome</h2>
-                </div>
-                <div class="summary-cards">
-                    <div class="card summary-card">
-                        <span class="card-icon blue">💰</span>
-                        <div>
-                            <span class="card-title" data-i18n="card_saldo">Saldo Atual</span>
-                            <h3 id="dash-saldo">R$ 0,00</h3>
-                        </div>
-                    </div>
-                    <div class="card summary-card">
-                        <span class="card-icon green">📈</span>
-                        <div>
-                            <span class="card-title" data-i18n="card_receitas">Receitas</span>
-                            <h3 id="dash-receitas" class="text-green">R$ 0,00</h3>
-                        </div>
-                    </div>
-                    <div class="card summary-card">
-                        <span class="card-icon red">📉</span>
-                        <div>
-                            <span class="card-title" data-i18n="card_despesas">Despesas</span>
-                            <h3 id="dash-despesas" class="text-red">R$ 0,00</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="dashboard-grid">
-                    <div class="card chart-card">
-                        <h4 data-i18n="chart_rec_cat">Receitas por Categoria</h4>
-                        <div class="chart-preview" id="dash-chart-receitas"></div>
-                        <button class="btn btn-text navigate-link" data-target="relatorios" data-i18n="btn_ver_mais">Ver mais →</button>
-                    </div>
-                    <div class="card chart-card">
-                        <h4 data-i18n="chart_esp_cat">Despesas por Categoria</h4>
-                        <div class="chart-preview" id="dash-chart-despesas"></div>
-                        <button class="btn btn-text navigate-link" data-target="relatorios" data-i18n="btn_ver_mais">Ver mais →</button>
-                    </div>
-                </div>
-                <div class="dashboard-row">
-                    <div class="card balance-card">
-                        <h4 data-i18n="card_balanco">Balanço Mensal</h4>
-                        <div id="dash-balanco-bars" class="balance-bars-container"></div>
-                    </div>
-                    <div class="card plan-preview-card">
-                        <h4 data-i18n="card_planejamento">Planejamento</h4>
-                        <p id="dash-plan-msg" class="text-muted">Opa! Você ainda não possui um planejamento definido para este mês.</p>
-                        <button class="btn btn-outline navigate-link" data-target="planejamento" data-i18n="btn_definir_plano">Definir meu planejamento</button>
-                    </div>
-                </div>
-            </section>
-
-            <section id="view-transacoes" class="view" hidden>
-                <div class="section-header">
-                    <h2 data-i18n="menu_transacoes">Transações</h2>
-                    <button id="btn-open-trans-modal" class="btn btn-primary" data-i18n="btn_nova_transacao">+ Nova Transação</button>
-                </div>
-                <div class="summary-cards mini">
-                    <div class="card summary-card"><span>💰</span><div><small data-i18n="card_saldo">Saldo</small><h4 id="trans-saldo">R$ 0,00</h4></div></div>
-                    <div class="card summary-card"><span>📈</span><div><small data-i18n="card_receitas">Receitas</small><h4 id="trans-receitas" class="text-green">R$ 0,00</h4></div></div>
-                    <div class="card summary-card"><span>📉</span><div><small data-i18n="card_despesas">Despesas</small><h4 id="trans-despesas" class="text-red">R$ 0,00</h4></div></div>
-                </div>
-                <div class="card table-card">
-                    <div class="table-actions-bar">
-                        <button id="btn-delete-selected" class="btn btn-danger-outline" disabled data-i18n="btn_excluir_selecionados">Excluir Selecionados</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table id="table-transacoes">
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="select-all-trans"></th>
-                                    <th data-i18n="th_data">Data</th>
-                                    <th data-i18n="th_tipo">Tipo</th>
-                                    <th data-i18n="th_categoria">Categoria</th>
-                                    <th data-i18n="th_valor">Valor</th>
-                                    <th data-i18n="th_status">Situação</th>
-                                    <th data-i18n="th_acoes">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                    <div class="pagination" id="trans-pagination"></div>
-                </div>
-            </section>
-
-            <section id="view-planejamento" class="view" hidden>
-                <div class="section-header">
-                    <h2 data-i18n="menu_planejamento">Planejamento & Cofrinho</h2>
-                </div>
-                <div class="plan-grid">
-                    <div class="card">
-                        <h3 data-i18n="title_config_meta">Configurar Meta Mensal</h3>
-                        <form id="form-meta">
-                            <div class="input-group">
-                                <label data-i18n="label_titulo_meta">Título da Meta</label>
-                                <input type="text" name="titulo" required placeholder="Ex: Reserva de Emergência">
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_salario_liquido">Salário Líquido (R$)</label>
-                                <input type="text" name="salario_liquido" class="money-mask" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_porcentagem_meta">Porcentagem da Meta (%)</label>
-                                <input type="number" name="porcentagem_meta" min="1" max="100" value="20" required>
-                            </div>
-                            <div class="btn-group">
-                                <button type="submit" class="btn btn-primary" data-i18n="btn_salvar_meta">Salvar Meta</button>
-                                <button type="button" id="btn-delete-meta" class="btn btn-danger" hidden data-i18n="btn_excluir_meta">Excluir Meta</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="card piggy-bank-panel">
-                        <h3 data-i18n="title_desafio_cofrinho">Desafio do Cofrinho</h3>
-                        <div class="piggy-stats">
-                            <div><span data-i18n="label_guardado">Guardado:</span> <strong id="piggy-saved">R$ 0,00</strong></div>
-                            <div><span data-i18n="label_meta_total">Meta Total:</span> <strong id="piggy-total">R$ 0,00</strong></div>
-                        </div>
-                        <div id="piggy-grid" class="piggy-grid-container">
-                            <p class="text-muted" data-i18n="msg_sem_meta">Cadastre uma meta para ativar os quadradinhos do cofrinho.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="view-relatorios" class="view" hidden>
-                <div class="section-header">
-                    <h2 data-i18n="menu_relatorios">Relatórios Analíticos</h2>
-                </div>
-                <div class="reports-grid">
-                    <div class="card">
-                        <h3 data-i18n="chart_rec_cat">Receitas por Categoria</h3>
-                        <div id="report-chart-rec" class="full-chart-container"></div>
-                    </div>
-                    <div class="card">
-                        <h3 data-i18n="chart_esp_cat">Despesas por Categoria</h3>
-                        <div id="report-chart-esp" class="full-chart-container"></div>
-                    </div>
-                    <div class="card full-width">
-                        <h3 data-i18n="title_historico_balanco">Balanço Histórico (Últimos Meses)</h3>
-                        <div id="report-history-chart" class="history-chart-container"></div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="view-configuracoes" class="view" hidden>
-                <div class="section-header">
-                    <h2 data-i18n="menu_configuracoes">Configurações & Perfil</h2>
-                </div>
-                <div class="config-grid">
-                    <div class="card">
-                        <h3 data-i18n="title_perfil">Meu Perfil</h3>
-                        <div class="profile-edit-box">
-                            <img id="config-user-avatar" src="icons/default-avatar.png" alt="Avatar">
-                            <input type="file" id="upload-avatar-input" accept="image/*" hidden>
-                            <button type="button" class="btn btn-outline" id="btn-change-avatar" data-i18n="btn_alterar_foto">Alterar Foto</button>
-                        </div>
-                        <form id="form-update-profile">
-                            <div class="input-group">
-                                <label data-i18n="label_nome">Nome</label>
-                                <input type="text" name="nome" id="config-input-nome" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_sobrenome">Sobrenome</label>
-                                <input type="text" name="sobrenome" id="config-input-sobrenome" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary" data-i18n="btn_atualizar_perfil">Atualizar Perfil</button>
-                        </form>
-                    </div>
-                    <div class="card">
-                        <h3 data-i18n="title_preferencias">Preferências</h3>
-                        <div class="input-group">
-                            <label data-i18n="label_idioma">Idioma</label>
-                            <select id="select-language">
-                                <option value="pt-BR">Português (Brasil)</option>
-                                <option value="en">English</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label data-i18n="label_tema">Tema</label>
-                            <select id="select-theme">
-                                <option value="light" data-i18n="theme_light">Claro</option>
-                                <option value="dark" data-i18n="theme_dark">Escuro</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <h3 data-i18n="title_seguranca">Segurança & Senha</h3>
-                        <form id="form-update-password">
-                            <div class="input-group">
-                                <label data-i18n="label_senha_antiga">Senha Antiga</label>
-                                <input type="password" name="senha_antiga" required>
-                            </div>
-                            <div class="input-group">
-                                <label data-i18n="label_nova_senha">Nova Senha</label>
-                                <input type="password" name="nova_senha" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary" data-i18n="btn_alterar_senha">Alterar Senha</button>
-                        </form>
-                    </div>
-                    <div class="card danger-zone">
-                        <h3 data-i18n="title_zona_perigo">Zona de Perigo</h3>
-                        <div class="danger-actions">
-                            <button id="btn-restart-account" class="btn btn-danger-outline" data-i18n="btn_reiniciar_conta">Reiniciar Conta</button>
-                            <button id="btn-delete-account" class="btn btn-danger" data-i18n="btn_excluir_conta">Excluir Conta Permanentemente</button>
-                            <button id="btn-logout" class="btn btn-secondary" data-i18n="btn_sair">Sair (Logout)</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <div id="modal-transacao" class="modal" hidden>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-trans-title" data-i18n="title_nova_transacao">Nova Transação</h3>
-                <button class="modal-close" id="btn-close-trans-modal">&times;</button>
-            </div>
-            <form id="form-transacao">
-                <input type="hidden" name="transacao_id" id="trans-id-hidden">
-                <div class="input-group">
-                    <label data-i18n="label_tipo">Tipo</label>
-                    <select name="tipo" id="trans-tipo-select" required>
-                        <option value="receita" data-i18n="opt_receita">Receita</option>
-                        <option value="despesa" data-i18n="opt_despesa">Despesa</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label data-i18n="label_categoria">Categoria</label>
-                    <select name="categoria" id="trans-cat-select" required></select>
-                </div>
-                <div class="input-group">
-                    <label data-i18n="label_valor">Valor (R$)</label>
-                    <input type="text" name="valor" id="trans-valor-input" class="money-mask" required>
-                </div>
-                <div class="input-group">
-                    <label data-i18n="label_data">Data (DD/MM/AAAA)</label>
-                    <input type="text" name="data" id="trans-data-input" placeholder="DD/MM/AAAA" maxlength="10" required>
-                </div>
-                <div class="input-group">
-                    <label data-i18n="label_status">Situação</label>
-                    <select name="status" id="trans-status-select" required>
-                        <option value="efetuada" data-i18n="opt_efetuada">Efetuada</option>
-                        <option value="pendente" data-i18n="opt_pendente">Pendente</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_salvar">Salvar Transação</button>
-            </form>
+            <!-- Main Content -->
+            <main id="main-content">
+                <!-- Views serão renderizadas aqui pelo SPA -->
+                <div id="view-container"></div>
+            </main>
         </div>
     </div>
 
