@@ -541,10 +541,10 @@ function renderDashboard() {
         }).join('');
     }
 
-    // Calcula alturas das barras
-    const totalReceitasDespesas = (state.resumo?.receitas || 0) + (state.resumo?.despesas || 0);
-    const alturaReceitas = totalReceitasDespesas > 0 ? ((state.resumo?.receitas || 0) / totalReceitasDespesas) * 100 : 0;
-    const alturaDespesas = totalReceitasDespesas > 0 ? ((state.resumo?.despesas || 0) / totalReceitasDespesas) * 100 : 0;
+    // Calcula alturas das barras - baseado no maior valor
+    const maxValor = Math.max(state.resumo?.receitas || 0, state.resumo?.despesas || 0, 1);
+    const alturaReceitas = ((state.resumo?.receitas || 0) / maxValor) * 100;
+    const alturaDespesas = ((state.resumo?.despesas || 0) / maxValor) * 100;
 
     return `
         <div class="view">
