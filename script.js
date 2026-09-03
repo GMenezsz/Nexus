@@ -27,6 +27,10 @@ const state = {
 // Guarda o evento de instalação da PWA até o usuário clicar no botão
 let deferredInstallPrompt = null;
 
+// Paleta de cores para os gráficos por categoria
+const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71'];
+const dashboardCharts = { receitas: null, despesas: null };
+
 // ========================================
 // API CLIENT
 // ========================================
@@ -395,7 +399,7 @@ function renderView(view) {
 
     switch (view) {
         case 'login': container.innerHTML = renderLogin(); break;
-        case 'dashboard': container.innerHTML = renderDashboard(); break;
+        case 'dashboard': container.innerHTML = renderDashboard(); renderDashboardCharts(); break;
         case 'transacoes': container.innerHTML = renderTransacoes(); break;
         case 'planejamento': container.innerHTML = renderPlanejamento(); break;
         case 'relatorios': container.innerHTML = renderRelatorios(); break;
@@ -491,6 +495,19 @@ function renderDashboard() {
                 </div>
             </div>
 
+            <div class="card-grid-2">
+                <div class="card">
+                    <h3 class="mb-md">📈 Receitas por Categoria</h3>
+                    <div class="chart-wrap"><canvas id="chart-receitas"></canvas></div>
+                    <div id="legend-receitas" class="chart-legend"></div>
+                </div>
+                <div class="card">
+                    <h3 class="mb-md">📉 Despesas por Categoria</h3>
+                    <div class="chart-wrap"><canvas id="chart-despesas"></canvas></div>
+                    <div id="legend-despesas" class="chart-legend"></div>
+                </div>
+            </div>
+
             <div class="card">
                 <h3 class="mb-md">🎯 Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
@@ -509,6 +526,73 @@ function renderDashboard() {
             </div>
         </div>
     `;
+}
+
+function groupByCategoria(tipo) {
+    const totals = {};
+    (state.transactions || [])
+        .filter(t => t.tipo === tipo && (t.status === 'pago' || t.status === 'efetuada'))
+        .forEach(t => { totals[t.categoria] = (totals[t.categoria] || 0) + Number(t.valor); });
+    return totals;
+}
+
+function renderDoughnutChart(canvasId, legendId, totals, key) {
+    const canvas = document.getElementById(canvasId);
+    const legendEl = document.getElementById(legendId);
+    if (!canvas) return;
+
+    if (dashboardCharts[key]) {
+        dashboardCharts[key].destroy();
+        dashboardCharts[key] = null;
+    }
+
+    const labels = Object.keys(totals);
+    const values = Object.values(totals);
+    const total = values.reduce((a, b) => a + b, 0);
+
+    if (labels.length === 0 || total === 0) {
+        canvas.style.display = 'none';
+        if (legendEl) legendEl.innerHTML = `<p class="text-muted text-center">Sem transações pagas nessa categoria ainda</p>`;
+        return;
+    }
+    canvas.style.display = '';
+
+    const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+
+    if (typeof Chart === 'undefined') {
+        if (legendEl) legendEl.innerHTML = `<p class="text-muted text-center">Não foi possível carregar a biblioteca de gráficos</p>`;
+        return;
+    }
+
+    dashboardCharts[key] = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)} (${((ctx.parsed / total) * 100).toFixed(1)}%)`
+                    }
+                }
+            }
+        }
+    });
+
+    if (legendEl) {
+        legendEl.innerHTML = labels.map((label, i) => {
+            const pct = ((values[i] / total) * 100).toFixed(1);
+            return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${label} — ${formatCurrency(values[i])} (${pct}%)</div>`;
+        }).join('');
+    }
+}
+
+function renderDashboardCharts() {
+    renderDoughnutChart('chart-receitas', 'legend-receitas', groupByCategoria('receita'), 'receitas');
+    renderDoughnutChart('chart-despesas', 'legend-despesas', groupByCategoria('despesa'), 'despesas');
 }
 
 // ========================================
@@ -564,9 +648,9 @@ function renderTransacoes() {
                         ${transacoes.length === 0 ? `
                             <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
                         ` : transacoes.map(tx => {
-                            const isPast = isDatePastOrToday(tx.data);
-                            const statusText = isPast ? '✅ Efetuada' : '⏳ Pendente';
-                            const statusClass = isPast ? 'badge-success' : 'badge-warning';
+                            const isPago = tx.status === 'pago' || tx.status === 'efetuada';
+                            const statusText = isPago ? '✅ Paga' : '⏳ Pendente';
+                            const statusClass = isPago ? 'badge-success' : 'badge-warning';
                             const valorColor = tx.tipo === 'receita' ? 'var(--color-success)' : 'var(--color-danger)';
                             return `
                                 <tr>
@@ -920,39 +1004,10 @@ window.bulkDelete = async () => {
     await loadDashboardData();
 };
 
-window.editTransaction = async (id) => {
+window.editTransaction = (id) => {
     const tx = state.transactions.find(t => String(t.id) === String(id));
-    if (!tx) return;
-    
-    const novoTipo = prompt('Tipo (receita/despesa):', tx.tipo);
-    if (!novoTipo) return;
-    
-    const novaCategoria = prompt('Categoria:', tx.categoria);
-    if (!novaCategoria) return;
-    
-    const novoValor = prompt('Valor (ex: 100.50):', tx.valor);
-    if (!novoValor) return;
-    
-    const novaData = prompt('Data (DD/MM/AAAA):', formatDateBR(tx.data));
-    if (!novaData) return;
-    
-    const novoStatus = confirm('Status: OK = Efetuada, Cancelar = Pendente') ? 'efetuada' : 'pendente';
-    
-    try {
-        await api.atualizarTransacao(
-            state.user,
-            id,
-            novoTipo,
-            novaCategoria,
-            parseFloat(novoValor),
-            toAPIFormat(novaData),
-            novoStatus
-        );
-        showToast('Transação atualizada!', 'success');
-        await loadDashboardData();
-    } catch (err) {
-        showToast('Erro: ' + err.message, 'error');
-    }
+    if (!tx) { showToast('Transação não encontrada', 'error'); return; }
+    openTransactionModal(tx);
 };
 
 window.deleteTransaction = async (id) => {
@@ -1035,38 +1090,49 @@ window.deleteAccount = async () => {
     }
 };
 
-window.openTransactionModal = () => {
+function computeStatusFromDate(dataStr) {
+    const hoje = new Date().toISOString().split('T')[0];
+    return dataStr && dataStr <= hoje ? 'pago' : 'pendente';
+}
+
+function categoriaOptionsHTML(tipo, selecionada) {
+    const lista = (state.categories && state.categories[tipo]) || [];
+    if (lista.length === 0) {
+        return `<option value="">Nenhuma categoria disponível</option>`;
+    }
+    return lista.map(cat => `<option value="${cat}" ${cat === selecionada ? 'selected' : ''}>${cat}</option>`).join('');
+}
+
+function statusPreviewHTML(dataStr) {
+    const status = computeStatusFromDate(dataStr);
+    return status === 'pago'
+        ? `<span class="badge badge-success">✅ Será efetuada (data já chegou)</span>`
+        : `<span class="badge badge-warning">⏳ Ficará pendente até a data</span>`;
+}
+
+window.openTransactionModal = (tx = null) => {
+    const isEdicao = !!tx;
+    const tipoInicial = tx ? tx.tipo : 'receita';
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="modal">
             <div class="modal-header">
-                <h2>➕ Nova Transação</h2>
+                <h2>${isEdicao ? '✏️ Editar Transação' : '➕ Nova Transação'}</h2>
                 <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
             <form id="transaction-form">
                 <div class="form-group">
                     <label>Tipo</label>
                     <select id="tx-tipo" required>
-                        <option value="receita">💰 Receita</option>
-                        <option value="despesa">💸 Despesa</option>
+                        <option value="receita" ${tipoInicial === 'receita' ? 'selected' : ''}>💰 Receita</option>
+                        <option value="despesa" ${tipoInicial === 'despesa' ? 'selected' : ''}>💸 Despesa</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Categoria</label>
                     <select id="tx-categoria" required>
-                        <option value="Salário">Salário</option>
-                        <option value="Pix">Pix</option>
-                        <option value="Bonificação">Bonificação</option>
-                        <option value="Freelance">Freelance</option>
-                        <option value="Investimentos">Investimentos</option>
-                        <option value="Alimentação">Alimentação</option>
-                        <option value="Transporte">Transporte</option>
-                        <option value="Moradia">Moradia</option>
-                        <option value="Lazer">Lazer</option>
-                        <option value="Contas">Contas</option>
-                        <option value="Saúde">Saúde</option>
-                        <option value="Outros">Outros</option>
+                        ${categoriaOptionsHTML(tipoInicial, tx ? tx.categoria : null)}
                     </select>
                 </div>
                 <div class="form-group">
@@ -1078,34 +1144,54 @@ window.openTransactionModal = () => {
                     <input type="date" id="tx-data" required />
                 </div>
                 <div class="form-group">
-                    <label>Status</label>
-                    <select id="tx-status">
-                        <option value="efetuada">✅ Efetuada</option>
-                        <option value="pendente">⏳ Pendente</option>
-                    </select>
+                    <label>Status (automático pela data)</label>
+                    <div id="tx-status-preview"></div>
                 </div>
-                <button type="submit" class="btn-primary" style="width:100%;">Criar Transação</button>
+                <button type="submit" class="btn-primary" style="width:100%;">${isEdicao ? 'Salvar Alterações' : 'Criar Transação'}</button>
             </form>
         </div>
     `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
 
-    const hoje = new Date().toISOString().split('T')[0];
-    document.getElementById('tx-data').value = hoje;
+    const tipoSelect = document.getElementById('tx-tipo');
+    const categoriaSelect = document.getElementById('tx-categoria');
+    const dataInput = document.getElementById('tx-data');
+    const valorInput = document.getElementById('tx-valor');
+    const statusPreview = document.getElementById('tx-status-preview');
+
+    dataInput.value = tx ? tx.data : new Date().toISOString().split('T')[0];
+    if (tx) {
+        valorInput.value = formatCurrency(tx.valor).replace('R$', 'R$ ');
+    }
+    statusPreview.innerHTML = statusPreviewHTML(dataInput.value);
+
+    tipoSelect.addEventListener('change', () => {
+        categoriaSelect.innerHTML = categoriaOptionsHTML(tipoSelect.value, null);
+    });
+    dataInput.addEventListener('change', () => {
+        statusPreview.innerHTML = statusPreviewHTML(dataInput.value);
+    });
 
     document.getElementById('transaction-form').onsubmit = async (e) => {
         e.preventDefault();
-        const tipo = document.getElementById('tx-tipo').value;
-        const categoria = document.getElementById('tx-categoria').value;
-        const valor = unmaskCurrency(document.getElementById('tx-valor').value);
-        const data = document.getElementById('tx-data').value;
-        const status = document.getElementById('tx-status').value;
+        const tipo = tipoSelect.value;
+        const categoria = categoriaSelect.value;
+        const valor = unmaskCurrency(valorInput.value);
+        const data = dataInput.value;
+        const status = computeStatusFromDate(data);
 
         if (!valor) { showToast('Digite um valor válido', 'error'); return; }
+        if (!categoria) { showToast('Selecione uma categoria', 'error'); return; }
 
         try {
-            await api.criarTransacao(state.user, tipo, categoria, valor, data, status);
-            showToast('✅ Transação criada!', 'success');
+            if (isEdicao) {
+                await api.atualizarTransacao(state.user, tx.id, tipo, categoria, valor, data, status);
+                showToast('✅ Transação atualizada!', 'success');
+            } else {
+                await api.criarTransacao(state.user, tipo, categoria, valor, data, status);
+                showToast('✅ Transação criada!', 'success');
+            }
             modal.remove();
             await loadDashboardData();
         } catch (err) {
