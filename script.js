@@ -400,7 +400,16 @@ function renderView(view) {
 
     switch (view) {
         case 'login': container.innerHTML = renderLogin(); break;
-        case 'dashboard': container.innerHTML = renderDashboard(); renderDashboardCharts(); break;
+        case 'dashboard': 
+            container.innerHTML = renderDashboard(); 
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    renderDashboardCharts();
+                } else {
+                    checkChartJs();
+                }
+            }, 50);
+            break;
         case 'transacoes': container.innerHTML = renderTransacoes(); break;
         case 'receitas': container.innerHTML = renderTransacoes(); break;
         case 'despesas': container.innerHTML = renderTransacoes(); break;
@@ -411,6 +420,37 @@ function renderView(view) {
     }
     
     bindEvents(view);
+}
+
+// ========================================
+// VERIFICAÇÃO DO CHART.JS
+// ========================================
+function checkChartJs() {
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js não carregado. Tentando carregar...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+        script.onload = () => {
+            console.log('Chart.js carregado com sucesso!');
+            if (state.currentView === 'dashboard') {
+                setTimeout(renderDashboardCharts, 100);
+            }
+        };
+        script.onerror = () => {
+            console.error('Falha ao carregar Chart.js');
+            document.querySelectorAll('.chart-wrap canvas').forEach(c => {
+                c.style.display = 'none';
+                const parent = c.parentElement;
+                const msg = document.createElement('p');
+                msg.className = 'text-muted text-center';
+                msg.textContent = '📊 Gráficos indisponíveis no momento';
+                parent.appendChild(msg);
+            });
+        };
+        document.head.appendChild(script);
+        return false;
+    }
+    return true;
 }
 
 // ========================================
@@ -473,6 +513,34 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
+    // Função para renderizar a legenda estilizada
+    function renderStyledLegend(tipo) {
+        const totals = groupByCategoria(tipo);
+        const entries = Object.entries(totals);
+        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
+        
+        if (entries.length === 0 || total === 0) {
+            return `<p class="text-muted text-center" style="padding:16px 0;">Sem transações pagas nessa categoria ainda</p>`;
+        }
+        
+        return entries.map(([categoria, valor], index) => {
+            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+            const color = CHART_COLORS[index % CHART_COLORS.length];
+            return `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        <span style="font-weight:500;color:var(--text-primary);">${categoria}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:600;color:var(--text-primary);">${formatCurrency(valor)}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;">(${pct}%)</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     return `
         <div class="view">
             <div class="dashboard-header">
@@ -504,21 +572,29 @@ function renderDashboard() {
             <div class="card-grid-2">
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <h3>📈 Receitas por Categoria</h3>
+                        <h3>Receitas por Categoria</h3>
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-receitas"></canvas></div>
-                    <div id="legend-receitas" class="chart-legend"></div>
-                    <div style="text-align:center;margin-top:8px;font-weight:600;color:var(--text-primary);">${formatCurrency(state.resumo?.receitas || 0)} Total</div>
+                    <div id="legend-receitas" style="margin-top:12px;">
+                        ${renderStyledLegend('receita')}
+                    </div>
+                    <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                        ${formatCurrency(state.resumo?.receitas || 0)} Total
+                    </div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <h3>📉 Despesas por Categoria</h3>
+                        <h3>Despesas por Categoria</h3>
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-despesas"></canvas></div>
-                    <div id="legend-despesas" class="chart-legend"></div>
-                    <div style="text-align:center;margin-top:8px;font-weight:600;color:var(--text-primary);">${formatCurrency(state.resumo?.despesas || 0)} Total</div>
+                    <div id="legend-despesas" style="margin-top:12px;">
+                        ${renderStyledLegend('despesa')}
+                    </div>
+                    <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                        ${formatCurrency(state.resumo?.despesas || 0)} Total
+                    </div>
                 </div>
             </div>
 
@@ -595,7 +671,6 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
 
     if (labels.length === 0 || total === 0) {
         canvas.style.display = 'none';
-        if (legendEl) legendEl.innerHTML = `<p class="text-muted text-center">Sem transações pagas nessa categoria ainda</p>`;
         return;
     }
     canvas.style.display = '';
@@ -603,7 +678,6 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
     const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
 
     if (typeof Chart === 'undefined') {
-        if (legendEl) legendEl.innerHTML = `<p class="text-muted text-center">Não foi possível carregar a biblioteca de gráficos</p>`;
         return;
     }
 
@@ -624,13 +698,6 @@ function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
             }
         }
     });
-
-    if (legendEl) {
-        legendEl.innerHTML = labels.map((label, i) => {
-            const pct = ((values[i] / total) * 100).toFixed(1);
-            return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i]}"></span>${label} — ${formatCurrency(values[i])} (${pct}%)</div>`;
-        }).join('');
-    }
 }
 
 function renderDashboardCharts() {
@@ -802,6 +869,33 @@ function renderRelatorios() {
     const despesas = state.resumo?.despesas || 0;
     const balanco = receitas - despesas;
     
+    function renderCategoryList(tipo) {
+        const totals = groupByCategoria(tipo);
+        const entries = Object.entries(totals);
+        const total = entries.reduce((sum, [_, val]) => sum + val, 0);
+        
+        if (entries.length === 0 || total === 0) {
+            return `<p class="text-muted text-center">Nenhuma ${tipo === 'receita' ? 'receita' : 'despesa'} cadastrada</p>`;
+        }
+        
+        return entries.map(([categoria, valor], index) => {
+            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+            const color = CHART_COLORS[index % CHART_COLORS.length];
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        <span style="font-weight:500;">${categoria}</span>
+                    </div>
+                    <div>
+                        <span style="font-weight:600;">${formatCurrency(valor)}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     return `
         <div class="view">
             <h1>📈 Relatórios</h1>
@@ -827,50 +921,14 @@ function renderRelatorios() {
             <div class="card">
                 <h3>📈 Receitas por Categoria</h3>
                 <div style="margin-top:16px;">
-                    ${Object.entries(groupByCategoria('receita')).length === 0 ? 
-                        `<p class="text-muted text-center">Nenhuma receita cadastrada</p>` :
-                        Object.entries(groupByCategoria('receita')).map(([categoria, valor], index) => {
-                            const total = Object.values(groupByCategoria('receita')).reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-                            return `
-                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${CHART_COLORS[index % CHART_COLORS.length]};"></span>
-                                        <span>${categoria}</span>
-                                    </div>
-                                    <div>
-                                        <span style="font-weight:500;">${formatCurrency(valor)}</span>
-                                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')
-                    }
+                    ${renderCategoryList('receita')}
                 </div>
             </div>
 
             <div class="card">
                 <h3>📉 Despesas por Categoria</h3>
                 <div style="margin-top:16px;">
-                    ${Object.entries(groupByCategoria('despesa')).length === 0 ? 
-                        `<p class="text-muted text-center">Nenhuma despesa cadastrada</p>` :
-                        Object.entries(groupByCategoria('despesa')).map(([categoria, valor], index) => {
-                            const total = Object.values(groupByCategoria('despesa')).reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-                            return `
-                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${CHART_COLORS[index % CHART_COLORS.length]};"></span>
-                                        <span>${categoria}</span>
-                                    </div>
-                                    <div>
-                                        <span style="font-weight:500;">${formatCurrency(valor)}</span>
-                                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')
-                    }
+                    ${renderCategoryList('despesa')}
                 </div>
             </div>
         </div>
