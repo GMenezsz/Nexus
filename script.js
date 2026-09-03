@@ -1169,15 +1169,29 @@ window.openTransactionModal = (tx = null) => {
     const valorInput = document.getElementById('tx-valor');
     const statusPreview = document.getElementById('tx-status-preview');
 
+    // Atualiza o seletor de categoria quando o tipo muda
+    tipoSelect.addEventListener('change', function() {
+        const tipo = this.value;
+        const categorias = state.categories[tipo] || [];
+        categoriaSelect.innerHTML = categorias.map(cat => 
+            `<option value="${cat}">${cat}</option>`
+        ).join('');
+        if (categorias.length === 0) {
+            categoriaSelect.innerHTML = `<option value="">Nenhuma categoria disponível</option>`;
+        }
+    });
+
     dataInput.value = tx ? tx.data : new Date().toISOString().split('T')[0];
     if (tx) {
-        valorInput.value = formatCurrency(tx.valor).replace('R$', 'R$ ');
+        valorInput.value = 'R$ ' + tx.valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        // Seleciona a categoria correta
+        const categorias = state.categories[tipoInicial] || [];
+        if (categorias.length > 0 && tx.categoria) {
+            categoriaSelect.value = tx.categoria;
+        }
     }
     statusPreview.innerHTML = statusPreviewHTML(dataInput.value);
 
-    tipoSelect.addEventListener('change', () => {
-        categoriaSelect.innerHTML = categoriaOptionsHTML(tipoSelect.value, null);
-    });
     dataInput.addEventListener('change', () => {
         statusPreview.innerHTML = statusPreviewHTML(dataInput.value);
     });
