@@ -6,7 +6,12 @@
     <meta name="theme-color" content="#8b7fe8" />
     <meta name="description" content="Nexus - Plataforma Fintech para gestão financeira inteligente" />
     <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon-192.png" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Nexus" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>Nexus - Gestão Financeira</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,9 +24,12 @@
         <header id="main-header">
             <div class="header-left">
                 <button id="menu-toggle" class="icon-btn" aria-label="Menu">☰</button>
-                <span class="brand">💰 Nexus</span>
+                <span class="brand">💰 <span class="brand-text">Nexus</span></span>
             </div>
             <div class="header-right">
+                <button id="pwa-install-btn" class="btn-install" type="button" hidden>
+                    <span aria-hidden="true">📲</span><span class="install-label">Baixar App</span>
+                </button>
                 <button id="theme-toggle" class="icon-btn" aria-label="Alternar tema">
                     <span id="theme-icon">🌙</span>
                 </button>
