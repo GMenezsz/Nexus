@@ -6,6 +6,7 @@ const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
 const USER_NAME_KEY = 'nexus_user_name';
 const USER_FULL_KEY = 'nexus_user_full';
+const USER_FOTO_KEY = 'nexus_user_foto';
 
 // ========================================
 // ESTADO GLOBAL
@@ -14,6 +15,7 @@ const state = {
     user: null,
     userName: null,
     userFullName: null,
+    userFoto: null,
     currentView: 'dashboard',
     theme: localStorage.getItem('nexus_theme') || 'light',
     transactions: [],
@@ -21,6 +23,9 @@ const state = {
     resumo: null,
     categories: { receita: [], despesa: [] }
 };
+
+// Guarda o evento de instalação da PWA até o usuário clicar no botão
+let deferredInstallPrompt = null;
 
 // ========================================
 // API CLIENT
@@ -134,6 +139,13 @@ const api = {
         return this.request(`/reiniciar_conta?usuario=${encodeURIComponent(usuario)}`, {
             method: 'DELETE'
         });
+    },
+
+    async atualizarFoto(usuario, foto) {
+        return this.request('/atualizar_foto', {
+            method: 'PUT',
+            body: JSON.stringify({ usuario, foto })
+        });
     }
 };
 
@@ -185,6 +197,48 @@ function formatName(name) {
     return name.toLowerCase().split(' ').map(word => 
         word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+}
+
+function renderAvatar(size = 'normal') {
+    const cls = size === 'large' ? 'avatar-large' : 'avatar';
+    if (state.userFoto) {
+        return `<div class="${cls}"><img src="${state.userFoto}" alt="Foto de perfil" /></div>`;
+    }
+    const inicial = state.userFullName ? state.userFullName.charAt(0).toUpperCase() : '👤';
+    return `<div class="${cls}">${inicial}</div>`;
+}
+
+function resizeImageToBase64(file, maxDim = 400, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            reject(new Error('Selecione um arquivo de imagem válido.'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+        reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('Não foi possível processar a imagem.'));
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > height && width > maxDim) {
+                    height = Math.round(height * (maxDim / width));
+                    width = maxDim;
+                } else if (height > maxDim) {
+                    width = Math.round(width * (maxDim / height));
+                    height = maxDim;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 function showToast(message, type = 'info') {
@@ -258,28 +312,36 @@ function checkSession() {
     const user = localStorage.getItem(STORAGE_KEY);
     const userName = localStorage.getItem(USER_NAME_KEY);
     const userFull = localStorage.getItem(USER_FULL_KEY);
+    const userFoto = localStorage.getItem(USER_FOTO_KEY);
     
     if (!user) return false;
     
     state.user = user;
     state.userName = userName || 'Usuário';
     state.userFullName = userFull || userName || 'Usuário';
+    state.userFoto = userFoto || null;
     
     return true;
 }
 
-function doLogin(user, nomeCompleto) {
+function doLogin(user, nomeCompleto, foto) {
     // Formata o nome com .title()
     const nomeFormatado = formatName(nomeCompleto);
     
     state.user = user;
     state.userFullName = nomeFormatado;
     state.userName = nomeFormatado.split(' ')[0];
+    state.userFoto = foto || null;
     
     // Salva no localStorage
     localStorage.setItem(STORAGE_KEY, user);
     localStorage.setItem(USER_NAME_KEY, state.userName);
     localStorage.setItem(USER_FULL_KEY, state.userFullName);
+    if (state.userFoto) {
+        localStorage.setItem(USER_FOTO_KEY, state.userFoto);
+    } else {
+        localStorage.removeItem(USER_FOTO_KEY);
+    }
     
     navigate('dashboard');
     loadDashboardData();
@@ -289,10 +351,12 @@ function doLogout() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(USER_NAME_KEY);
     localStorage.removeItem(USER_FULL_KEY);
+    localStorage.removeItem(USER_FOTO_KEY);
     
     state.user = null;
     state.userName = null;
     state.userFullName = null;
+    state.userFoto = null;
     
     navigate('login');
 }
@@ -401,7 +465,7 @@ function renderDashboard() {
             <div class="dashboard-header">
                 <h1>👋 Olá, ${nome}</h1>
                 <div class="user-profile" onclick="navigate('configuracoes')">
-                    <div class="avatar">${fullName ? fullName.charAt(0).toUpperCase() : '👤'}</div>
+                    ${renderAvatar('normal')}
                     <span>${fullName}</span>
                 </div>
             </div>
@@ -422,19 +486,17 @@ function renderDashboard() {
             </div>
 
             <div class="card">
-                <h3>🎯 Planejamento</h3>
+                <h3 class="mb-md">🎯 Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div class="row-between">
                         <div><strong>${state.metas[0].titulo}</strong></div>
                         <div>💰 ${formatCurrency(state.metas[0].salario_liquido)}</div>
                         <div>🎯 ${state.metas[0].porcentagem_meta}%</div>
                         <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
                 ` : `
-                    <div style="margin-top: 16px; margin-bottom: 16px;">
-                        <p style="color:var(--text-muted); margin-bottom: 20px; font-size: 1rem; line-height: 1.6;">
-                            Opa! Você ainda não possui um planejamento definido para este mês.
-                        </p>
+                    <div class="empty-state">
+                        <p>Opa! Você ainda não possui um planejamento definido para este mês.</p>
                         <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
                     </div>
                 `}
@@ -474,7 +536,7 @@ function renderTransacoes() {
                 </div>
             </div>
 
-            <div style="margin-bottom:12px;">
+            <div class="mb-md">
                 <button id="bulk-delete-btn" class="btn-danger-strong" onclick="bulkDelete()">🗑️ Deletar Selecionados</button>
             </div>
 
@@ -494,19 +556,20 @@ function renderTransacoes() {
                     </thead>
                     <tbody>
                         ${transacoes.length === 0 ? `
-                            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">Nenhuma transação encontrada</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
                         ` : transacoes.map(tx => {
                             const isPast = isDatePastOrToday(tx.data);
                             const statusText = isPast ? '✅ Efetuada' : '⏳ Pendente';
                             const statusClass = isPast ? 'badge-success' : 'badge-warning';
+                            const valorColor = tx.tipo === 'receita' ? 'var(--color-success)' : 'var(--color-danger)';
                             return `
                                 <tr>
-                                    <td><input type="checkbox" class="row-select" data-id="${tx.id}" onchange="updateBulkDeleteButton()" /></td>
-                                    <td>${tx.categoria}</td>
-                                    <td style="color:${tx.tipo === 'receita' ? 'var(--color-success)' : 'var(--color-danger)'};">${formatCurrency(tx.valor)}</td>
-                                    <td>${formatDateBR(tx.data)}</td>
-                                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                                    <td style="text-align:center;">
+                                    <td class="td-checkbox"><input type="checkbox" class="row-select" data-id="${tx.id}" onchange="updateBulkDeleteButton()" /></td>
+                                    <td data-label="Categoria">${tx.categoria}</td>
+                                    <td data-label="Valor" style="color:${valorColor};">${formatCurrency(tx.valor)}</td>
+                                    <td data-label="Data">${formatDateBR(tx.data)}</td>
+                                    <td data-label="Status"><span class="badge ${statusClass}">${statusText}</span></td>
+                                    <td class="td-actions">
                                         <button class="action-dots" onclick="showTransactionActions('${tx.id}')">⋮</button>
                                     </td>
                                 </tr>
@@ -554,13 +617,13 @@ function renderPlanejamento() {
 
             ${meta ? `
                 <div class="card">
-                    <h3>📊 Resumo da Meta</h3>
-                    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;">
+                    <h3 class="mb-md">📊 Resumo da Meta</h3>
+                    <div class="summary-list">
                         <div><strong>Meta Total:</strong> ${formatCurrency(metaTotal)}</div>
                         <div><strong>Porcentagem:</strong> ${meta.porcentagem_meta}%</div>
                         <div><strong>Salário:</strong> ${formatCurrency(meta.salario_liquido)}</div>
                     </div>
-                    <div style="background:var(--bg-input);border-radius:12px;padding:16px;text-align:center;color:var(--text-muted);margin-bottom:12px;">
+                    <div class="text-center text-muted mb-md" style="background:var(--bg-input);border-radius:12px;padding:16px;">
                         🎯 Clique nos quadradinhos para marcar como concluído
                     </div>
                     <div class="cofrinho-grid">
@@ -571,10 +634,8 @@ function renderPlanejamento() {
                 </div>
             ` : `
                 <div class="card">
-                    <div style="margin-top: 24px; margin-bottom: 24px; padding: 8px 0;">
-                        <p style="color:var(--text-muted); margin-bottom: 24px; font-size: 1.05rem; line-height: 1.8;">
-                            Opa! Você ainda não possui um planejamento definido para este mês.
-                        </p>
+                    <div class="empty-state">
+                        <p>Opa! Você ainda não possui um planejamento definido para este mês.</p>
                         <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
                     </div>
                 </div>
@@ -607,19 +668,24 @@ function renderConfiguracoes() {
             <h1>⚙️ Configurações</h1>
 
             <div class="card">
-                <h3>👤 Perfil</h3>
-                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <div class="avatar-large">${state.userFullName ? state.userFullName.charAt(0).toUpperCase() : '👤'}</div>
-                    <div>
+                <h3 class="mb-md">👤 Perfil</h3>
+                <div class="avatar-upload-row">
+                    ${renderAvatar('large')}
+                    <div class="avatar-upload-info">
                         <div><strong>Nome:</strong> ${state.userFullName || ''}</div>
                         <div><strong>Usuário:</strong> ${state.user || ''}</div>
                     </div>
                 </div>
-                <button class="btn-secondary" onclick="updateProfile()" style="margin-top:12px;">✏️ Editar Nome</button>
+                <div class="avatar-upload-actions">
+                    <label for="foto-input" class="btn-secondary">📷 Alterar Foto</label>
+                    <input type="file" id="foto-input" accept="image/*" class="visually-hidden-input" />
+                    ${state.userFoto ? `<button class="btn-secondary" onclick="removeProfilePhoto()">🗑️ Remover Foto</button>` : ''}
+                    <button class="btn-secondary" onclick="updateProfile()">✏️ Editar Nome</button>
+                </div>
             </div>
 
             <div class="card">
-                <h3>🔐 Alterar Senha</h3>
+                <h3 class="mb-md">🔐 Alterar Senha</h3>
                 <form id="change-password-form">
                     <div class="form-group">
                         <label>Senha Antiga</label>
@@ -634,16 +700,16 @@ function renderConfiguracoes() {
             </div>
 
             <div class="card">
-                <h3>🎨 Tema</h3>
-                <div style="display:flex;gap:8px;">
+                <h3 class="mb-md">🎨 Tema</h3>
+                <div class="row-wrap-sm">
                     <button class="btn-secondary" onclick="setTheme('light')">☀️ Claro</button>
                     <button class="btn-secondary" onclick="setTheme('dark')">🌙 Escuro</button>
                 </div>
             </div>
 
             <div class="card" style="border-color:var(--color-danger);">
-                <h3 style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <h3 class="mb-md" style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
+                <div class="row-wrap-sm">
                     <button class="btn-danger" onclick="resetAccount()">🔄 Resetar Conta</button>
                     <button class="btn-danger" onclick="deleteAccount()">🗑️ Excluir Conta</button>
                     <button class="btn-secondary" onclick="doLogout()">🚪 Sair</button>
@@ -679,7 +745,7 @@ function bindEvents(view) {
             try {
                 const result = await api.login(user, pass);
                 if (result && result.nome) {
-                    doLogin(user, result.nome);
+                    doLogin(user, result.nome, result.foto);
                     showToast(result.boas_vindas || `Bem-vindo, ${result.nome}!`, 'success');
                 }
             } catch (err) {
@@ -736,6 +802,27 @@ function bindEvents(view) {
                 await loadDashboardData();
             } catch (err) {
                 showToast('Erro: ' + (err.message || ''), 'error');
+            }
+        };
+    }
+
+    // Upload de foto de perfil
+    const fotoInput = document.getElementById('foto-input');
+    if (fotoInput) {
+        fotoInput.onchange = async () => {
+            const file = fotoInput.files && fotoInput.files[0];
+            if (!file) return;
+            try {
+                const base64 = await resizeImageToBase64(file);
+                await api.atualizarFoto(state.user, base64);
+                state.userFoto = base64;
+                localStorage.setItem(USER_FOTO_KEY, base64);
+                showToast('Foto atualizada!', 'success');
+                renderView('configuracoes');
+            } catch (err) {
+                showToast('Erro: ' + (err.message || 'Não foi possível enviar a foto'), 'error');
+            } finally {
+                fotoInput.value = '';
             }
         };
     }
@@ -884,6 +971,19 @@ window.deleteMeta = async (titulo) => {
     }
 };
 
+window.removeProfilePhoto = async () => {
+    if (!confirm('Remover sua foto de perfil?')) return;
+    try {
+        await api.atualizarFoto(state.user, '');
+        state.userFoto = null;
+        localStorage.removeItem(USER_FOTO_KEY);
+        showToast('Foto removida!', 'success');
+        renderView('configuracoes');
+    } catch (err) {
+        showToast('Erro: ' + (err.message || ''), 'error');
+    }
+};
+
 window.updateProfile = async () => {
     const nome = prompt('Novo nome:', state.userFullName?.split(' ')[0] || '');
     const sobrenome = prompt('Novo sobrenome:', state.userFullName?.split(' ').slice(1).join(' ') || '');
@@ -1009,6 +1109,23 @@ window.openTransactionModal = () => {
 };
 
 // ========================================
+// INSTALAÇÃO DA PWA
+// ========================================
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.hidden = false;
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.hidden = true;
+    showToast('App instalado com sucesso! 🎉', 'success');
+});
+
+// ========================================
 // INICIALIZAÇÃO
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -1020,11 +1137,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = localStorage.getItem(STORAGE_KEY);
     const userName = localStorage.getItem(USER_NAME_KEY);
     const userFull = localStorage.getItem(USER_FULL_KEY);
+    const userFoto = localStorage.getItem(USER_FOTO_KEY);
     
     if (user) {
         state.user = user;
         state.userName = userName || 'Usuário';
         state.userFullName = userFull || userName || 'Usuário';
+        state.userFoto = userFoto || null;
     }
 
     // Eventos do menu
@@ -1037,6 +1156,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('sidebar-logout')?.addEventListener('click', doLogout);
+
+    // Botão de instalar app (PWA)
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+            installBtn.hidden = true;
+        } else if (deferredInstallPrompt) {
+            installBtn.hidden = false;
+        }
+        installBtn.addEventListener('click', async () => {
+            if (!deferredInstallPrompt) {
+                showToast('Para instalar, use o menu do navegador e escolha "Adicionar à tela inicial".', 'info');
+                return;
+            }
+            installBtn.hidden = true;
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome !== 'accepted') {
+                installBtn.hidden = false;
+            }
+            deferredInstallPrompt = null;
+        });
+    }
 
     // Navegação
     document.querySelectorAll('#sidebar .nav-item[href]').forEach(el => {
