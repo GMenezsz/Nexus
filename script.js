@@ -541,6 +541,11 @@ function renderDashboard() {
         }).join('');
     }
 
+    // Calcula alturas das barras
+    const totalReceitasDespesas = (state.resumo?.receitas || 0) + (state.resumo?.despesas || 0);
+    const alturaReceitas = totalReceitasDespesas > 0 ? ((state.resumo?.receitas || 0) / totalReceitasDespesas) * 100 : 0;
+    const alturaDespesas = totalReceitasDespesas > 0 ? ((state.resumo?.despesas || 0) / totalReceitasDespesas) * 100 : 0;
+
     return `
         <div class="view">
             <div class="dashboard-header">
@@ -601,21 +606,35 @@ function renderDashboard() {
             <div class="card-grid" style="grid-template-columns: 1fr;">
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <h3>📊 Balanço Mensal</h3>
+                        <h3>Balanço Mensal</h3>
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:12px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;">
-                            <span style="font-weight:500;">Receitas</span>
-                            <span style="color:var(--color-success);font-weight:600;">${formatCurrency(state.resumo?.receitas || 0)}</span>
+                    <div style="display:flex;align-items:flex-end;gap:40px;padding:8px 0;">
+                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                            <div style="display:flex;align-items:flex-end;gap:20px;height:120px;">
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                    <div style="width:36px;background:var(--color-success);border-radius:4px 4px 0 0;height:${Math.max(alturaReceitas, 5)}%;min-height:8px;transition:height 0.5s ease;"></div>
+                                    <span style="font-size:0.65rem;color:var(--text-muted);font-weight:500;">Receitas</span>
+                                </div>
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                                    <div style="width:36px;background:var(--color-danger);border-radius:4px 4px 0 0;height:${Math.max(alturaDespesas, 5)}%;min-height:8px;transition:height 0.5s ease;"></div>
+                                    <span style="font-size:0.65rem;color:var(--text-muted);font-weight:500;">Despesas</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;">
-                            <span style="font-weight:500;">Despesas</span>
-                            <span style="color:var(--color-danger);font-weight:600;">${formatCurrency(state.resumo?.despesas || 0)}</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
-                            <span style="font-weight:600;">Balanço</span>
-                            <span style="color:var(--color-purple);font-weight:700;font-size:1.1rem;">${formatCurrency((state.resumo?.receitas || 0) - (state.resumo?.despesas || 0))}</span>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
+                                <span style="font-weight:500;font-size:0.9rem;">Receitas</span>
+                                <span style="color:var(--color-success);font-weight:600;font-size:0.95rem;">${formatCurrency(state.resumo?.receitas || 0)}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
+                                <span style="font-weight:500;font-size:0.9rem;">Despesas</span>
+                                <span style="color:var(--color-danger);font-weight:600;font-size:0.95rem;">${formatCurrency(state.resumo?.despesas || 0)}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;border-top:2px solid var(--color-purple);">
+                                <span style="font-weight:700;font-size:1rem;">Balanço</span>
+                                <span style="color:var(--color-purple);font-weight:700;font-size:1.2rem;">${formatCurrency((state.resumo?.receitas || 0) - (state.resumo?.despesas || 0))}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
