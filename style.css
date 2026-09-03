@@ -571,7 +571,7 @@ tr:hover td { background: var(--bg-input); }
 
 .cofrinho-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
     gap: 8px;
     margin-top: 12px;
 }
@@ -583,17 +583,29 @@ tr:hover td { background: var(--bg-input); }
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 0.8rem;
+    text-align: center;
+    padding: 4px;
+    font-weight: 700;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
     color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s;
+    user-select: none;
 }
 .cofrinho-cell:hover { transform: scale(1.05); }
 .cofrinho-cell.completed {
     background: var(--color-success);
     border-color: var(--color-success);
     color: #fff;
+    cursor: default;
+}
+.cofrinho-cell.completed:hover { transform: none; }
+.cofrinho-cell.loading {
+    opacity: 0.6;
+    cursor: wait;
+    pointer-events: none;
 }
 
 /* Modal */
