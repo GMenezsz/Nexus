@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v5');
+console.log('🔵 SCRIPT CARREGADO - v6');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -515,7 +515,7 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
-    console.log('📊 Renderizando Dashboard - v5');
+    console.log('📊 Renderizando Dashboard - v6');
     console.log('Receitas:', receitas, 'Despesas:', despesas);
 
     // Função para renderizar a legenda estilizada
@@ -545,22 +545,6 @@ function renderDashboard() {
             `;
         }).join('');
     }
-
-    // Calcula alturas das barras - baseado no maior valor com altura mínima
-    const maxValor = Math.max(receitas, despesas, 1);
-    let alturaReceitas = (receitas / maxValor) * 100;
-    let alturaDespesas = (despesas / maxValor) * 100;
-    
-    console.log('Altura Receitas:', alturaReceitas, '%');
-    console.log('Altura Despesas:', alturaDespesas, '%');
-    
-    // Garante altura mínima de 15% para a barra menor
-    const minAltura = 15;
-    if (alturaReceitas > 0 && alturaReceitas < minAltura) alturaReceitas = minAltura;
-    if (alturaDespesas > 0 && alturaDespesas < minAltura) alturaDespesas = minAltura;
-
-    console.log('Altura Receitas (após min):', alturaReceitas, '%');
-    console.log('Altura Despesas (após min):', alturaDespesas, '%');
 
     return `
         <div class="view">
@@ -625,32 +609,18 @@ function renderDashboard() {
                         <h3>Balanço Mensal</h3>
                         <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
                     </div>
-                    <div style="display:flex;align-items:flex-end;gap:40px;padding:8px 0;">
-                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;">
-                            <div style="display:flex;align-items:flex-end;gap:20px;height:120px;">
-                                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                                    <div style="width:36px;background:var(--color-success);border-radius:4px 4px 0 0;height:${Math.max(alturaReceitas, 5)}%;min-height:8px;transition:height 0.5s ease;"></div>
-                                    <span style="font-size:0.65rem;color:var(--text-muted);font-weight:500;">Receitas</span>
-                                </div>
-                                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                                    <div style="width:36px;background:var(--color-danger);border-radius:4px 4px 0 0;height:${Math.max(alturaDespesas, 5)}%;min-height:8px;transition:height 0.5s ease;"></div>
-                                    <span style="font-size:0.65rem;color:var(--text-muted);font-weight:500;">Despesas</span>
-                                </div>
-                            </div>
+                    <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;">
+                            <span style="font-weight:500;font-size:0.95rem;">Receitas</span>
+                            <span style="color:var(--color-success);font-weight:600;font-size:1rem;">${formatCurrency(receitas)}</span>
                         </div>
-                        <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
-                                <span style="font-weight:500;font-size:0.9rem;">Receitas</span>
-                                <span style="color:var(--color-success);font-weight:600;font-size:0.95rem;">${formatCurrency(receitas)}</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
-                                <span style="font-weight:500;font-size:0.9rem;">Despesas</span>
-                                <span style="color:var(--color-danger);font-weight:600;font-size:0.95rem;">${formatCurrency(despesas)}</span>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;border-top:2px solid var(--color-purple);">
-                                <span style="font-weight:700;font-size:1rem;">Balanço</span>
-                                <span style="color:var(--color-purple);font-weight:700;font-size:1.2rem;">${formatCurrency(receitas - despesas)}</span>
-                            </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;">
+                            <span style="font-weight:500;font-size:0.95rem;">Despesas</span>
+                            <span style="color:var(--color-danger);font-weight:600;font-size:1rem;">${formatCurrency(despesas)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
+                            <span style="font-weight:700;font-size:1rem;">Balanço</span>
+                            <span style="color:var(--color-purple);font-weight:700;font-size:1.1rem;">${formatCurrency(receitas - despesas)}</span>
                         </div>
                     </div>
                 </div>
