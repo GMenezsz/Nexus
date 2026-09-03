@@ -4,6 +4,8 @@
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
+const USER_NAME_KEY = 'nexus_user_name';
+const USER_FULL_KEY = 'nexus_user_full';
 
 // ========================================
 // ESTADO GLOBAL
@@ -247,30 +249,63 @@ function updateSidebarActive(view) {
 // ========================================
 function checkSession() {
     const user = localStorage.getItem(STORAGE_KEY);
+    const userName = localStorage.getItem(USER_NAME_KEY);
+    const userFull = localStorage.getItem(USER_FULL_KEY);
+    
     if (!user) return false;
+    
     state.user = user;
+    state.userName = userName || 'Usuário';
+    state.userFullName = userFull || userName || 'Usuário';
+    
+    // Atualiza o header
+    updateHeaderUser();
+    
     return true;
+}
+
+function updateHeaderUser() {
+    const userEl = document.getElementById('header-user');
+    const userNameEl = document.getElementById('header-user-name');
+    const loginLink = document.getElementById('header-login-link');
+    
+    if (state.user && state.userName) {
+        loginLink.style.display = 'none';
+        userEl.style.display = 'flex';
+        userEl.style.alignItems = 'center';
+        userEl.style.gap = '8px';
+        userNameEl.textContent = `👋 ${state.userName}`;
+    } else {
+        loginLink.style.display = 'inline';
+        userEl.style.display = 'none';
+    }
 }
 
 function doLogin(user, nomeCompleto) {
     state.user = user;
     state.userFullName = nomeCompleto;
     state.userName = nomeCompleto.split(' ')[0];
+    
+    // Salva no localStorage
     localStorage.setItem(STORAGE_KEY, user);
-    document.getElementById('header-login-link').style.display = 'none';
-    document.getElementById('header-user').style.display = 'inline';
-    document.getElementById('header-user').textContent = `👋 ${state.userName}`;
+    localStorage.setItem(USER_NAME_KEY, state.userName);
+    localStorage.setItem(USER_FULL_KEY, state.userFullName);
+    
+    updateHeaderUser();
     navigate('dashboard');
     loadDashboardData();
 }
 
 function doLogout() {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(USER_NAME_KEY);
+    localStorage.removeItem(USER_FULL_KEY);
+    
     state.user = null;
     state.userName = null;
     state.userFullName = null;
-    document.getElementById('header-login-link').style.display = 'inline';
-    document.getElementById('header-user').style.display = 'none';
+    
+    updateHeaderUser();
     navigate('login');
 }
 
@@ -371,7 +406,7 @@ function renderDashboard() {
     const receitas = state.resumo?.receitas || 0;
     const despesas = state.resumo?.despesas || 0;
     const nome = state.userName || 'Usuário';
-    const fullName = state.userFullName || '';
+    const fullName = state.userFullName || 'Usuário';
 
     return `
         <div class="view">
@@ -401,15 +436,17 @@ function renderDashboard() {
             <div class="card">
                 <h3>🎯 Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
                         <div><strong>${state.metas[0].titulo}</strong></div>
                         <div>💰 ${formatCurrency(state.metas[0].salario_liquido)}</div>
                         <div>🎯 ${state.metas[0].porcentagem_meta}%</div>
-                        <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes</button>
+                        <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
                 ` : `
-                    <p style="color:var(--text-muted);">Opa! Você ainda não possui um planejamento definido para este mês.</p>
-                    <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
+                    <div style="margin-bottom:12px;">
+                        <p style="color:var(--text-muted);margin-bottom:12px;">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                        <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
+                    </div>
                 `}
             </div>
         </div>
@@ -544,7 +581,10 @@ function renderPlanejamento() {
                 </div>
             ` : `
                 <div class="card">
-                    <p style="color:var(--text-muted);">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                    <div style="margin-bottom:12px;">
+                        <p style="color:var(--text-muted);margin-bottom:12px;">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                        <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
+                    </div>
                 </div>
             `}
         </div>
@@ -860,8 +900,13 @@ window.updateProfile = async () => {
         await api.atualizarNomeSobrenome(state.user, nome, sobrenome);
         state.userFullName = `${nome} ${sobrenome}`.trim();
         state.userName = nome;
+        
+        // Atualiza localStorage
+        localStorage.setItem(USER_NAME_KEY, state.userName);
+        localStorage.setItem(USER_FULL_KEY, state.userFullName);
+        
         showToast('Perfil atualizado!', 'success');
-        document.getElementById('header-user').textContent = `👋 ${state.userName}`;
+        updateHeaderUser();
         renderView('configuracoes');
     } catch (err) {
         showToast('Erro: ' + (err.message || ''), 'error');
@@ -977,15 +1022,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const theme = localStorage.getItem('nexus_theme') || 'light';
     setTheme(theme);
 
-    // Header user
+    // Recupera dados do usuário
     const user = localStorage.getItem(STORAGE_KEY);
+    const userName = localStorage.getItem(USER_NAME_KEY);
+    const userFull = localStorage.getItem(USER_FULL_KEY);
+    
     if (user) {
-        document.getElementById('header-login-link').style.display = 'none';
-        document.getElementById('header-user').style.display = 'inline';
-        document.getElementById('header-user').textContent = `👋 ${state.userName || 'Usuário'}`;
+        state.user = user;
+        state.userName = userName || 'Usuário';
+        state.userFullName = userFull || userName || 'Usuário';
+        updateHeaderUser();
     }
 
-    // Eventos
+    // Eventos do menu
     document.getElementById('menu-toggle')?.addEventListener('click', () => {
         document.getElementById('sidebar').classList.toggle('open');
     });
@@ -1010,8 +1059,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar
     if (checkSession()) {
-        document.getElementById('header-login-link').style.display = 'none';
-        document.getElementById('header-user').style.display = 'inline';
         loadDashboardData();
     } else {
         navigate('login');
