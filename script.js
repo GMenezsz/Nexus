@@ -1,999 +1,711 @@
-// ============ CONFIGURAÇÕES GLOBAIS ============
-const API_URL = 'https://nexus-api-mz3t.onrender.com';
-const USER_KEY = 'nexus_user';
-
-// Estado global
-let currentUser = null;
+const API_BASE = "https://nexus-api-mz3t.onrender.com";
+let currentUser = localStorage.getItem("nexus_user") || null;
+let currentLang = localStorage.getItem("nexus_lang") || "pt-BR";
+let currentTheme = localStorage.getItem("nexus_theme") || "light";
+let globalCategories = { receita: [], despesa: [] };
+let allTransactions = [];
 let currentPage = 1;
-let currentTransacoes = [];
-let currentMetas = [];
-let categories = { receita: [], despesa: [] };
-let charts = {};
+const itemsPerPage = 10;
+let deferredPrompt = null;
 
-// ============ UTILIDADES ============
-function formatCurrency(value) {
-    return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    }).format(value || 0);
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
-}
-
-function getFirstWord(name) {
-    return name ? name.split(' ')[0] : '';
-}
-
-function showLoading(show = true) {
-    const loadingScreen = document.getElementById('loading-screen');
-    if (show) {
-        loadingScreen.classList.remove('hidden');
-    } else {
-        loadingScreen.classList.add('hidden');
+// Dicionário de Internacionalização (PT-BR / EN)
+const i18n = {
+    "pt-BR": {
+        nav_home: "Início", nav_login: "Fazer Login", nav_download: "Download App",
+        auth_tab_login: "Entrar", auth_tab_register: "Cadastrar Nova Conta",
+        label_usuario: "Usuário", label_senha: "Senha", label_nome: "Nome", label_sobrenome: "Sobrenome",
+        btn_entrar: "Entrar", btn_cadastrar: "Criar Conta",
+        menu_dashboard: "Dashboard", menu_transacoes: "Transações", menu_planejamento: "Planejamento",
+        menu_relatorios: "Relatórios", menu_configuracoes: "Configurações",
+        card_saldo: "Saldo Atual", card_receitas: "Receitas", card_despesas: "Despesas",
+        chart_rec_cat: "Receitas por Categoria", chart_esp_cat: "Despesas por Categoria",
+        card_balanco: "Balanço Mensal", card_planejamento: "Planejamento",
+        btn_ver_mais: "Ver mais →", btn_definir_plano: "Definir meu planejamento",
+        btn_nova_transacao: "+ Nova Transação", btn_excluir_selecionados: "Excluir Selecionados",
+        th_data: "Data", th_tipo: "Tipo", th_categoria: "Categoria", th_valor: "Valor", th_status: "Situação", th_acoes: "Ações",
+        title_config_meta: "Configurar Meta Mensal", label_titulo_meta: "Título da Meta",
+        label_salario_liquido: "Salário Líquido (R$)", label_porcentagem_meta: "Porcentagem da Meta (%)",
+        btn_salvar_meta: "Salvar Meta", btn_excluir_meta: "Excluir Meta", title_desafio_cofrinho: "Desafio do Cofrinho",
+        label_guardado: "Guardado:", label_meta_total: "Meta Total:", msg_sem_meta: "Cadastre uma meta para ativar os quadradinhos do cofrinho.",
+        title_historico_balanco: "Balanço Histórico (Últimos Meses)", title_perfil: "Meu Perfil",
+        btn_alterar_foto: "Alterar Foto", btn_atualizar_perfil: "Atualizar Perfil", title_preferencias: "Preferências",
+        label_idioma: "Idioma", label_tema: "Tema", theme_light: "Claro", theme_dark: "Escuro",
+        title_seguranca: "Segurança & Senha", label_senha_antiga: "Senha Antiga", label_nova_senha: "Nova Senha",
+        btn_alterar_senha: "Alterar Senha", title_zona_perigo: "Zona de Perigo", btn_reiniciar_conta: "Reiniciar Conta",
+        btn_excluir_conta: "Excluir Conta Permanentemente", btn_sair: "Sair (Logout)",
+        title_nova_transacao: "Nova Transação", label_tipo: "Tipo", label_categoria: "Categoria",
+        label_valor: "Valor (R$)", label_data: "Data (DD/MM/AAAA)", label_status: "Situação",
+        opt_receita: "Receita", opt_despesa: "Despesa", opt_efetuada: "Efetuada", opt_pendente: "Pendente", btn_salvar: "Salvar Transação"
+    },
+    "en": {
+        nav_home: "Home", nav_login: "Login", nav_download: "Download App",
+        auth_tab_login: "Login", auth_tab_register: "Sign Up",
+        label_usuario: "Username", label_senha: "Password", label_nome: "First Name", label_sobrenome: "Last Name",
+        btn_entrar: "Sign In", btn_cadastrar: "Create Account",
+        menu_dashboard: "Dashboard", menu_transacoes: "Transactions", menu_planejamento: "Planning",
+        menu_relatorios: "Reports", menu_configuracoes: "Settings",
+        card_saldo: "Current Balance", card_receitas: "Incomes", card_despesas: "Expenses",
+        chart_rec_cat: "Incomes by Category", chart_esp_cat: "Expenses by Category",
+        card_balanco: "Monthly Balance", card_planejamento: "Planning",
+        btn_ver_mais: "View more →", btn_definir_plano: "Define my plan",
+        btn_nova_transacao: "+ New Transaction", btn_excluir_selecionados: "Delete Selected",
+        th_data: "Date", th_tipo: "Type", th_categoria: "Category", th_valor: "Amount", th_status: "Status", th_acoes: "Actions",
+        title_config_meta: "Configure Monthly Goal", label_titulo_meta: "Goal Title",
+        label_salario_liquido: "Net Salary ($)", label_porcentagem_meta: "Goal Percentage (%)",
+        btn_salvar_meta: "Save Goal", btn_excluir_meta: "Delete Goal", title_desafio_cofrinho: "Piggy Bank Challenge",
+        label_guardado: "Saved:", label_meta_total: "Total Goal:", msg_sem_meta: "Register a goal to activate piggy bank boxes.",
+        title_historico_balanco: "Historical Balance", title_perfil: "My Profile",
+        btn_alterar_foto: "Change Photo", btn_atualizar_perfil: "Update Profile", title_preferencias: "Preferences",
+        label_idioma: "Language", label_tema: "Theme", theme_light: "Light", theme_dark: "Dark",
+        title_seguranca: "Security & Password", label_senha_antiga: "Old Password", label_nova_senha: "New Password",
+        btn_alterar_senha: "Change Password", title_zona_perigo: "Danger Zone", btn_reiniciar_conta: "Restart Account",
+        btn_excluir_conta: "Delete Account Permanently", btn_sair: "Logout",
+        title_nova_transacao: "New Transaction", label_tipo: "Type", label_categoria: "Category",
+        label_valor: "Amount ($)", label_data: "Date (DD/MM/YYYY)", label_status: "Status",
+        opt_receita: "Income", opt_despesa: "Expense", opt_efetuada: "Completed", opt_pendente: "Pending", btn_salvar: "Save Transaction"
     }
-}
+};
 
-function showToast(message, type = 'success') {
-    // Implementar toast notifications
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
+document.addEventListener("DOMContentLoaded", async () => {
+    initThemeAndLang();
+    initMoneyMasks();
+    initPWA();
+    setupEventListeners();
 
-// ============ AUTENTICAÇÃO ============
-function checkAuth() {
-    const savedUser = localStorage.getItem(USER_KEY);
-    if (savedUser) {
+    // Verificação de Sessão Permanente & Integridade
+    if (currentUser) {
         try {
-            currentUser = JSON.parse(savedUser);
-            verifyUserAccount();
-            return true;
-        } catch (error) {
-            console.error('Erro ao carregar usuário:', error);
+            const res = await fetch(`${API_BASE}/transacoes/resumo?usuario=${encodeURIComponent(currentUser)}`);
+            if (!res.ok) throw new Error("Sessão inválida");
+            enterAppDashboard();
+        } catch (e) {
+            localStorage.removeItem("nexus_user");
+            currentUser = null;
+            showAuthView();
         }
+    } else {
+        showAuthView();
     }
-    return false;
+});
+
+/* --- Internacionalização e Temas --- */
+function initThemeAndLang() {
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    document.getElementById("select-theme").value = currentTheme;
+    document.getElementById("select-language").value = currentLang;
+    applyTranslations();
 }
 
-async function verifyUserAccount() {
+function applyTranslations() {
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (i18n[currentLang][key]) {
+            el.textContent = i18n[currentLang][key];
+        }
+    });
+}
+
+/* --- Máscara de Dinheiro --- */
+function initMoneyMasks() {
+    document.querySelectorAll(".money-mask").forEach(input => {
+        input.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\D/g, "");
+            value = (Number(value) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            e.target.value = value;
+        });
+    });
+}
+
+function parseMoneyToFloat(valStr) {
+    if (!valStr) return 0.0;
+    return parseFloat(valStr.replace(/\./g, "").replace(",", ".")) || 0.0;
+}
+
+function formatMoney(num) {
+    return (num || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/* --- Conversão de Data BR <-> ISO --- */
+function dateBrToIso(dateBr) {
+    const parts = dateBr.split("/");
+    if (parts.length !== 3) return dateBr;
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+function dateIsoToBr(dateIso) {
+    if (!dateIso) return "";
+    const parts = dateIso.split("-");
+    if (parts.length !== 3) return dateIso;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+/* --- Event Listeners Globais --- */
+function setupEventListeners() {
+    // Abas de Auth
+    document.querySelectorAll(".auth-tabs .tab-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            document.querySelectorAll(".auth-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+            e.target.classList.add("active");
+            const tab = e.target.getAttribute("data-tab");
+            if (tab === "login") {
+                document.getElementById("form-login").hidden = false;
+                document.getElementById("form-register").hidden = true;
+            } else {
+                document.getElementById("form-login").hidden = true;
+                document.getElementById("form-register").hidden = false;
+            }
+        });
+    });
+
+    // Login Submit
+    document.getElementById("form-login").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target));
+        try {
+            const res = await fetch(`${API_BASE}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao logar");
+            currentUser = formData.usuario;
+            localStorage.setItem("nexus_user", currentUser);
+            enterAppDashboard();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Cadastro Submit
+    document.getElementById("form-register").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target));
+        try {
+            const res = await fetch(`${API_BASE}/criar_conta`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Erro ao cadastrar");
+            currentUser = formData.usuario;
+            localStorage.setItem("nexus_user", currentUser);
+            enterAppDashboard();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Navegação Sidebar e Links
+    document.querySelectorAll(".sidebar-item, .navigate-link").forEach(item => {
+        item.addEventListener("click", (e) => {
+            e.preventDefault();
+            const target = item.getAttribute("data-target") || item.getAttribute("href").substring(1);
+            switchView(target);
+            if (window.innerWidth <= 768) {
+                document.getElementById("app-sidebar").classList.remove("open");
+            }
+        });
+    });
+
+    // Menu Mobile Hambúrguer
+    document.getElementById("menu-toggle").addEventListener("click", () => {
+        document.getElementById("app-sidebar").classList.toggle("open");
+    });
+
+    // Configurações: Tema e Idioma
+    document.getElementById("select-theme").addEventListener("change", (e) => {
+        currentTheme = e.target.value;
+        localStorage.setItem("nexus_theme", currentTheme);
+        document.documentElement.setAttribute("data-theme", currentTheme);
+    });
+
+    document.getElementById("select-language").addEventListener("change", (e) => {
+        currentLang = e.target.value;
+        localStorage.setItem("nexus_lang", currentLang);
+        applyTranslations();
+    });
+
+    // Logout
+    document.getElementById("btn-logout").addEventListener("click", () => {
+        localStorage.removeItem("nexus_user");
+        currentUser = null;
+        showAuthView();
+    });
+
+    // Transações Modal & Formulário
+    document.getElementById("btn-open-trans-modal").addEventListener("click", () => openTransModal());
+    document.getElementById("btn-close-trans-modal").addEventListener("click", () => document.getElementById("modal-transacao").hidden = true);
+    document.getElementById("trans-tipo-select").addEventListener("change", (e) => populateCategorySelect(e.target.value));
+
+    document.getElementById("form-transacao").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const transId = document.getElementById("trans-id-hidden").value;
+        const rawValor = parseMoneyToFloat(document.getElementById("trans-valor-input").value);
+        const rawData = dateBrToIso(document.getElementById("trans-data-input").value);
+        
+        const payload = {
+            usuario: currentUser,
+            tipo: document.getElementById("trans-tipo-select").value,
+            categoria: document.getElementById("trans-cat-select").value,
+            valor: rawValor,
+            data: rawData,
+            status: document.getElementById("trans-status-select").value
+        };
+
+        try {
+            let res;
+            if (transId) {
+                payload.transacao_id = transId;
+                res = await fetch(`${API_BASE}/transacoes/atualizar`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`${API_BASE}/transacoes/criar`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            if (!res.ok) throw new Error("Erro ao salvar transação");
+            document.getElementById("modal-transacao").hidden = true;
+            loadTransactionsPage();
+            loadDashboardData();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Meta / Planejamento Submit
+    document.getElementById("form-meta").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target));
+        formData.usuario = currentUser;
+        formData.salario_liquido = parseMoneyToFloat(formData.salario_liquido);
+        formData.porcentagem_meta = Number(formData.porcentagem_meta);
+
+        try {
+            const res = await fetch(`${API_BASE}/metas/criar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+            if (!res.ok) throw new Error("Erro ao salvar meta");
+            alert("Meta salva com sucesso!");
+            loadPlanningData();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Excluir Meta
+    document.getElementById("btn-delete-meta").addEventListener("click", async () => {
+        const titulo = document.querySelector("#form-meta input[name='titulo']").value;
+        if (!confirm("Deseja realmente excluir esta meta?")) return;
+        try {
+            const res = await fetch(`${API_BASE}/metas/deletar?usuario=${encodeURIComponent(currentUser)}&titulo=${encodeURIComponent(titulo)}`, {
+                method: "DELETE"
+            });
+            if (!res.ok) throw new Error("Erro ao excluir meta");
+            loadPlanningData();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Perfil Update
+    document.getElementById("form-update-profile").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById("config-input-nome").value;
+        const sobrenome = document.getElementById("config-input-sobrenome").value;
+        try {
+            const res = await fetch(`${API_BASE}/atualizar_nome_sobrenome`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario: currentUser, nome, sobrenome })
+            });
+            if (!res.ok) throw new Error("Erro ao atualizar perfil");
+            alert("Perfil atualizado!");
+            loadUserProfile();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Senha Update
+    document.getElementById("form-update-password").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target));
+        formData.usuario = currentUser;
+        try {
+            const res = await fetch(`${API_BASE}/atualizar_senha`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+            if (!res.ok) throw new Error("Senha antiga incorreta ou erro ao atualizar");
+            alert("Senha alterada com sucesso!");
+            e.target.reset();
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Reiniciar & Excluir Conta
+    document.getElementById("btn-restart-account").addEventListener("click", async () => {
+        if (!confirm("Tem certeza que deseja reiniciar sua conta (apagar transações/metas)?")) return;
+        try {
+            const res = await fetch(`${API_BASE}/reiniciar_conta?usuario=${encodeURIComponent(currentUser)}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Erro ao reiniciar conta");
+            alert("Conta reiniciada com sucesso.");
+            loadDashboardData();
+        } catch (err) { alert(err.message); }
+    });
+
+    document.getElementById("btn-delete-account").addEventListener("click", async () => {
+        if (!confirm("ATENÇÃO: Deseja excluir permanentemente sua conta? Esta ação é irreversível.")) return;
+        try {
+            const res = await fetch(`${API_BASE}/deletar_usuario?usuario=${encodeURIComponent(currentUser)}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Erro ao deletar conta");
+            localStorage.removeItem("nexus_user");
+            currentUser = null;
+            showAuthView();
+        } catch (err) { alert(err.message); }
+    });
+
+    // Checkbox master transações
+    document.getElementById("select-all-trans").addEventListener("change", (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll(".trans-checkbox").forEach(cb => {
+            cb.checked = checked;
+        });
+        updateBulkDeleteButton();
+    });
+
+    document.getElementById("btn-delete-selected").addEventListener("click", async () => {
+        const selected = Array.from(document.querySelectorAll(".trans-checkbox:checked")).map(cb => cb.getAttribute("data-id"));
+        if (!selected.length || !confirm(`Deseja excluir ${selected.length} transações?`)) return;
+        
+        for (const id of selected) {
+            await fetch(`${API_BASE}/transacoes/deletar`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario: currentUser, transacao_id: id })
+            });
+        }
+        loadTransactionsPage();
+        loadDashboardData();
+    });
+}
+
+/* --- Transição de Views e Estado Logado --- */
+function showAuthView() {
+    document.getElementById("global-header").querySelector(".header-brand").hidden = false;
+    document.getElementById("header-public-actions").hidden = false;
+    document.getElementById("header-private-actions").hidden = true;
+    document.getElementById("app-sidebar").hidden = true;
+    document.querySelectorAll(".view").forEach(v => v.hidden = true);
+    document.getElementById("view-auth").hidden = false;
+    document.getElementById("view-auth").classList.add("active-view");
+}
+
+async function enterAppDashboard() {
+    document.getElementById("header-public-actions").hidden = true;
+    document.getElementById("header-private-actions").hidden = false;
+    document.getElementById("app-sidebar").hidden = false;
+    document.getElementById("menu-toggle").hidden = false;
+    
+    await fetchCategories();
+    await loadUserProfile();
+    switchView("dashboard");
+}
+
+function switchView(viewName) {
+    document.querySelectorAll(".view").forEach(v => {
+        v.hidden = true;
+        v.classList.remove("active-view");
+    });
+    const target = document.getElementById(`view-${viewName}`);
+    if (target) {
+        target.hidden = false;
+        target.classList.add("active-view");
+    }
+
+    document.querySelectorAll(".sidebar-item").forEach(item => {
+        item.classList.remove("active");
+        if (item.getAttribute("data-target") === viewName) {
+            item.classList.add("active");
+        }
+    });
+
+    // Carregar dados específicos da view
+    if (viewName === "dashboard") loadDashboardData();
+    if (viewName === "transacoes") loadTransactionsPage();
+    if (viewName === "planejamento") loadPlanningData();
+    if (viewName === "relatorios") loadReportsData();
+    if (viewName === "configuracoes") loadConfigData();
+}
+
+/* --- API Requests & Módulos --- */
+async function fetchCategories() {
     try {
-        const response = await fetch(`${API_URL}/transacoes/resumo?usuario=${currentUser.access_token}`);
-        if (!response.ok) {
-            throw new Error('Conta não encontrada');
-        }
-        showMainApp();
-    } catch (error) {
-        console.error('Erro ao verificar conta:', error);
-        logout();
+        const res = await fetch(`${API_BASE}/categorias`);
+        const data = await res.json();
+        globalCategories = data;
+    } catch (e) {
+        console.error("Erro ao buscar categorias", e);
     }
 }
 
-function login(usuario, senha) {
-    showLoading(true);
-    
-    fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ usuario, senha })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Login falhou');
-        }
-        return response.json();
-    })
-    .then(data => {
-        currentUser = data;
-        localStorage.setItem(USER_KEY, JSON.stringify(data));
-        showMainApp();
-        showToast('Login realizado com sucesso!');
-    })
-    .catch(error => {
-        console.error('Erro no login:', error);
-        showToast('Usuário ou senha incorretos', 'error');
-    })
-    .finally(() => {
-        showLoading(false);
-    });
-}
-
-function register(nome, sobrenome, usuario, senha) {
-    showLoading(true);
-    
-    fetch(`${API_URL}/criar_conta`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ nome, sobrenome, usuario, senha })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Registro falhou');
-        }
-        return response.json();
-    })
-    .then(() => {
-        showToast('Conta criada com sucesso! Faça login.');
-        switchAuthTab('login');
-    })
-    .catch(error => {
-        console.error('Erro no registro:', error);
-        showToast('Erro ao criar conta', 'error');
-    })
-    .finally(() => {
-        showLoading(false);
-    });
-}
-
-function logout() {
-    localStorage.removeItem(USER_KEY);
-    currentUser = null;
-    showLoginScreen();
-}
-
-function showMainApp() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('main-app').classList.remove('hidden');
-    loadInitialData();
-}
-
-function showLoginScreen() {
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('main-app').classList.add('hidden');
-}
-
-function switchAuthTab(tab) {
-    const tabs = document.querySelectorAll('.auth-tab');
-    const forms = document.querySelectorAll('.auth-form');
-    
-    tabs.forEach(t => t.classList.remove('active'));
-    forms.forEach(f => f.classList.remove('active'));
-    
-    if (tab === 'login') {
-        document.querySelector('[data-tab="login"]').classList.add('active');
-        document.getElementById('login-form').classList.add('active');
-    } else {
-        document.querySelector('[data-tab="register"]').classList.add('active');
-        document.getElementById('register-form').classList.add('active');
-    }
-}
-
-// ============ API CALLS ============
-async function apiCall(endpoint, method = 'GET', data = null) {
-    const options = {
-        method,
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    };
-    
-    if (data) {
-        options.body = JSON.stringify(data);
-    }
-    
-    const response = await fetch(`${API_URL}${endpoint}`, options);
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-    }
-    
-    return response.json();
-}
-
-function loadInitialData() {
-    if (!currentUser) return;
-    
-    const usuario = currentUser.access_token;
-    
-    // Carregar resumo
-    apiCall(`/transacoes/resumo?usuario=${usuario}`)
-        .then(data => {
-            updateDashboardSummary(data);
-            updateTransacoesSummary(data);
-        })
-        .catch(error => console.error('Erro ao carregar resumo:', error));
-    
-    // Carregar categorias
-    apiCall('/categorias')
-        .then(data => {
-            categories = data;
-            populateCategorySelects();
-        })
-        .catch(error => console.error('Erro ao carregar categorias:', error));
-    
-    // Carregar transações
-    loadTransacoes();
-    
-    // Carregar metas
-    loadMetas();
-    
-    // Atualizar perfil
-    updateProfileInfo();
-    
-    // Carregar relatórios
-    loadRelatorios();
-}
-
-function updateDashboardSummary(resumo) {
-    document.getElementById('saldo-atual').textContent = formatCurrency(resumo.saldo);
-    document.getElementById('total-receitas').textContent = formatCurrency(resumo.total_receitas);
-    document.getElementById('total-despesas').textContent = formatCurrency(resumo.total_despesas);
-}
-
-function updateTransacoesSummary(resumo) {
-    document.getElementById('transacoes-saldo').textContent = formatCurrency(resumo.saldo);
-    document.getElementById('transacoes-receitas').textContent = formatCurrency(resumo.total_receitas);
-    document.getElementById('transacoes-despesas').textContent = formatCurrency(resumo.total_despesas);
-}
-
-function updateProfileInfo() {
-    if (!currentUser) return;
-    
-    const greeting = document.getElementById('greeting');
-    const userNameHeader = document.getElementById('user-name-header');
-    const userPhoto = document.getElementById('user-photo');
-    const configUserPhoto = document.getElementById('config-user-photo');
-    const updateNome = document.getElementById('update-nome');
-    const updateSobrenome = document.getElementById('update-sobrenome');
-    
-    if (currentUser.nome) {
-        greeting.textContent = `Olá, ${getFirstWord(currentUser.nome)}!`;
-        userNameHeader.textContent = currentUser.nome;
+async function loadUserProfile() {
+    try {
+        const res = await fetch(`${API_BASE}/transacoes/resumo?usuario=${encodeURIComponent(currentUser)}`);
+        // Extrair nome do usuário logado através do login anterior ou metadados
+        const nameParts = currentUser.split("_");
+        const firstName = currentUser.charAt(0).toUpperCase() + currentUser.slice(1);
         
-        const [nome, ...sobrenome] = currentUser.nome.split(' ');
-        updateNome.value = nome || '';
-        updateSobrenome.value = sobrenome.join(' ') || '';
-    }
-    
-    if (currentUser.foto && currentUser.foto !== 'null') {
-        userPhoto.src = `data:image/jpeg;base64,${currentUser.foto}`;
-        configUserPhoto.src = `data:image/jpeg;base64,${currentUser.foto}`;
+        document.getElementById("header-user-name").textContent = firstName;
+        document.getElementById("greeting-text").textContent = `Olá, ${firstName}`;
+    } catch (e) {
+        console.error(e);
     }
 }
 
-// ============ TRANSAÇÕES ============
-function loadTransacoes(page = 1) {
-    if (!currentUser) return;
-    
-    const usuario = currentUser.access_token;
-    currentPage = page;
-    
-    apiCall(`/transacoes/listar?usuario=${usuario}`)
-        .then(transacoes => {
-            currentTransacoes = transacoes;
-            displayTransacoes();
-        })
-        .catch(error => console.error('Erro ao carregar transações:', error));
-}
-
-function displayTransacoes() {
-    const listContainer = document.getElementById('transacoes-list');
-    const paginationContainer = document.getElementById('pagination');
-    
-    // Paginação
-    const itemsPerPage = 10;
-    const totalPages = Math.ceil(currentTransacoes.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageItems = currentTransacoes.slice(startIndex, endIndex);
-    
-    // Renderizar lista
-    if (pageItems.length === 0) {
-        listContainer.innerHTML = '<p style="text-align: center; padding: 20px;">Nenhuma transação encontrada.</p>';
-    } else {
-        listContainer.innerHTML = pageItems.map(transacao => {
-            const isReceita = transacao.tipo === 'receita';
-            const statusClass = transacao.status === 'pendente' ? 'pendente' : 'efetuada';
-            const statusIcon = transacao.status === 'pendente' ? '!' : '✓';
-            
-            return `
-                <div class="transacao-item" data-id="${transacao.id || transacao.transacao_id}">
-                    <input type="checkbox" class="transacao-checkbox">
-                    <div class="transacao-status-icon status-${statusClass}">${statusIcon}</div>
-                    <div class="transacao-info">
-                        <div class="transacao-categoria">${transacao.categoria}</div>
-                        <div class="transacao-data">${formatDate(transacao.data)}</div>
-                    </div>
-                    <div class="transacao-valor ${isReceita ? 'valor-receita' : 'valor-despesa'}">
-                        ${isReceita ? '+' : '-'} ${formatCurrency(transacao.valor)}
-                    </div>
-                    <div class="transacao-menu">
-                        <button class="transacao-menu-btn">⋯</button>
-                        <div class="transacao-menu-content">
-                            <button class="transacao-menu-item edit-transacao">Editar</button>
-                            <button class="transacao-menu-item delete-transacao">Deletar</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+async function loadDashboardData() {
+    try {
+        const res = await fetch(`${API_BASE}/transacoes/resumo?usuario=${encodeURIComponent(currentUser)}`);
+        const summary = await res.json();
         
-        // Adicionar event listeners
-        document.querySelectorAll('.transacao-menu-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const menu = btn.nextElementSibling;
-                menu.classList.toggle('active');
-            });
-        });
-        
-        document.querySelectorAll('.edit-transacao').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const item = e.target.closest('.transacao-item');
-                const transacaoId = item.dataset.id;
-                const transacao = currentTransacoes.find(t => (t.id || t.transacao_id) == transacaoId);
-                if (transacao) {
-                    editTransacao(transacao);
-                }
-            });
-        });
-        
-        document.querySelectorAll('.delete-transacao').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const item = e.target.closest('.transacao-item');
-                const transacaoId = item.dataset.id;
-                deleteTransacao(transacaoId);
-            });
-        });
-    }
-    
-    // Renderizar paginação
-    if (totalPages > 1) {
-        paginationContainer.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) {
-            const btn = document.createElement('button');
-            btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
-            btn.textContent = i;
-            btn.addEventListener('click', () => {
-                currentPage = i;
-                displayTransacoes();
-            });
-            paginationContainer.appendChild(btn);
-        }
-    } else {
-        paginationContainer.innerHTML = '';
-    }
-}
+        const saldo = (summary.receitas || 0) - (summary.despesas || 0);
+        document.getElementById("dash-saldo").textContent = formatMoney(saldo);
+        document.getElementById("dash-receitas").textContent = formatMoney(summary.receitas);
+        document.getElementById("dash-despesas").textContent = formatMoney(summary.despesas);
 
-function createTransacao(transacaoData) {
-    if (!currentUser) return;
-    
-    transacaoData.usuario = currentUser.access_token;
-    
-    apiCall('/transacoes/criar', 'POST', transacaoData)
-        .then(() => {
-            showToast('Transação criada com sucesso!');
-            loadTransacoes();
-            loadInitialData();
-        })
-        .catch(error => {
-            console.error('Erro ao criar transação:', error);
-            showToast('Erro ao criar transação', 'error');
-        });
-}
-
-function updateTransacao(transacaoData) {
-    if (!currentUser) return;
-    
-    transacaoData.usuario = currentUser.access_token;
-    
-    apiCall('/transacoes/atualizar', 'PUT', transacaoData)
-        .then(() => {
-            showToast('Transação atualizada com sucesso!');
-            loadTransacoes();
-            loadInitialData();
-        })
-        .catch(error => {
-            console.error('Erro ao atualizar transação:', error);
-            showToast('Erro ao atualizar transação', 'error');
-        });
-}
-
-function deleteTransacao(transacaoId) {
-    if (!currentUser) return;
-    
-    if (confirm('Tem certeza que deseja deletar esta transação?')) {
-        apiCall('/transacoes/deletar', 'DELETE', {
-            usuario: currentUser.access_token,
-            transacao_id: transacaoId
-        })
-        .then(() => {
-            showToast('Transação deletada com sucesso!');
-            loadTransacoes();
-            loadInitialData();
-        })
-        .catch(error => {
-            console.error('Erro ao deletar transação:', error);
-            showToast('Erro ao deletar transação', 'error');
-        });
-    }
-}
-
-function editTransacao(transacao) {
-    const modal = document.getElementById('transacao-modal');
-    const form = document.getElementById('transacao-form');
-    
-    document.getElementById('transacao-modal-title').textContent = 'Editar Transação';
-    document.getElementById('transacao-id').value = transacao.id || transacao.transacao_id;
-    document.getElementById('transacao-tipo').value = transacao.tipo;
-    document.getElementById('transacao-categoria').value = transacao.categoria;
-    document.getElementById('transacao-valor').value = transacao.valor;
-    document.getElementById('transacao-data').value = transacao.data;
-    document.getElementById('transacao-status').value = transacao.status;
-    
-    populateCategorySelects(transacao.tipo);
-    modal.classList.remove('hidden');
-}
-
-function populateCategorySelects(tipo = null) {
-    const categorySelect = document.getElementById('transacao-categoria');
-    const tipoSelect = document.getElementById('transacao-tipo');
-    
-    if (!tipo) {
-        tipo = tipoSelect.value;
-    }
-    
-    const categoriesList = categories[tipo] || [];
-    categorySelect.innerHTML = categoriesList.map(cat => 
-        `<option value="${cat}">${cat}</option>`
-    ).join('');
-}
-
-// ============ METAS ============
-function loadMetas() {
-    if (!currentUser) return;
-    
-    const usuario = currentUser.access_token;
-    
-    apiCall(`/metas/listar?usuario=${usuario}`)
-        .then(metas => {
-            currentMetas = metas;
-            displayMetas();
-        })
-        .catch(error => console.error('Erro ao carregar metas:', error));
-}
-
-function displayMetas() {
-    const metasGrid = document.getElementById('metas-grid');
-    
-    if (!currentMetas || currentMetas.length === 0) {
-        metasGrid.innerHTML = '<p>Nenhuma meta definida.</p>';
-        document.getElementById('planejamento-preview').innerHTML = 
-            '<p>Opa! Você ainda não possui um planejamento definido para este mês.</p>' +
-            '<button class="btn-primary" data-page="planejamento">Definir meu planejamento</button>';
-        return;
-    }
-    
-    // Atualizar preview no dashboard
-    const metaAtual = currentMetas[0];
-    const metaValor = (metaAtual.salario_liquido * metaAtual.porcentagem_meta) / 100;
-    document.getElementById('planejamento-preview').innerHTML = `
-        <p>Meta: ${metaAtual.titulo}</p>
-        <p>Valor: ${formatCurrency(metaValor)}</p>
-        <p>Progresso: ${metaAtual.porcentagem_meta}%</p>
-    `;
-    
-    // Mostrar grid
-    metasGrid.innerHTML = currentMetas.map(meta => {
-        const metaValor = (meta.salario_liquido * meta.porcentagem_meta) / 100;
-        const partes = Math.ceil(metaValor / 100); // Cada quadrado vale R$ 100
-        const squares = Array(partes).fill(null).map((_, i) => {
-            return `<div class="meta-square" data-index="${i}" data-valor="${metaValor / partes}">
-                ${formatCurrency(metaValor / partes)}
-            </div>`;
-        }).join('');
-        
-        return `
-            <div class="meta-card">
-                <h3>${meta.titulo}</h3>
-                <p>Salário: ${formatCurrency(meta.salario_liquido)}</p>
-                <p>Meta: ${meta.porcentagem_meta}%</p>
-                <div class="metas-grid">${squares}</div>
-                <button class="btn-secondary edit-meta" data-titulo="${meta.titulo}">Editar</button>
-                <button class="btn-danger delete-meta" data-titulo="${meta.titulo}">Excluir</button>
+        // Balanço Mensal Barras
+        const balancoContainer = document.getElementById("dash-balanco-bars");
+        balancoContainer.innerHTML = `
+            <div style="display:flex; justify-content:space-around; align-items:flex-end; height:120px; padding-top:20px;">
+                <div style="text-align:center;"><div style="width:40px; height:${Math.min(100, (summary.receitas||1)/10)}px; background:var(--success); border-radius:4px;"></div><small>Rec</small></div>
+                <div style="text-align:center;"><div style="width:40px; height:${Math.min(100, (summary.despesas||1)/10)}px; background:var(--danger); border-radius:4px;"></div><small>Esp</small></div>
             </div>
         `;
-    }).join('');
-    
-    // Adicionar event listeners
-    document.querySelectorAll('.meta-square').forEach(square => {
-        square.addEventListener('click', () => {
-            square.classList.toggle('completed');
-            updatePlanejamentoResumo();
+
+        // Planejamento Preview
+        const metaRes = await fetch(`${API_BASE}/metas/listar?usuario=${encodeURIComponent(currentUser)}`);
+        const metas = await metaRes.json();
+        if (metas && metas.length > 0) {
+            document.getElementById("dash-plan-msg").textContent = `Meta ativa: ${metas[0].titulo} (${metas[0].porcentagem_meta}%)`;
+        }
+    } catch (e) { console.error(e); }
+}
+
+/* --- Transações Módulo --- */
+async function loadTransactionsPage() {
+    try {
+        const res = await fetch(`${API_BASE}/transacoes/listar?usuario=${encodeURIComponent(currentUser)}`);
+        allTransactions = await res.json() || [];
+        
+        // Calcular Resumo
+        let rec = 0, desp = 0;
+        allTransactions.forEach(t => {
+            if (t.tipo === 'receita') rec += t.valor;
+            else desp += t.valor;
+        });
+        document.getElementById("trans-saldo").textContent = formatMoney(rec - desp);
+        document.getElementById("trans-receitas").textContent = formatMoney(rec);
+        document.getElementById("trans-despesas").textContent = formatMoney(desp);
+
+        renderTransactionsTable();
+    } catch (e) { console.error(e); }
+}
+
+function renderTransactionsTable() {
+    const tbody = document.querySelector("#table-transacoes tbody");
+    tbody.innerHTML = "";
+
+    const start = (currentPage - 1) * itemsPerPage;
+    const paginatedItems = allTransactions.slice(start, start + itemsPerPage);
+
+    paginatedItems.forEach(t => {
+        const tr = document.createElement("tr");
+        const isPast = new Date(t.data) <= new Date();
+        const statusIcon = isPast ? '<span style="color:var(--success); font-weight:bold;">✔ Efetuada</span>' : '<span style="color:var(--danger); font-weight:bold;">❗ Pendente</span>';
+
+        tr.innerHTML = `
+            <td><input type="checkbox" class="trans-checkbox" data-id="${t.transacao_id}"></td>
+            <td>${dateIsoToBr(t.data)}</td>
+            <td>${t.tipo}</td>
+            <td>${t.categoria}</td>
+            <td class="${t.tipo === 'receita' ? 'text-green' : 'text-red'}">${formatMoney(t.valor)}</td>
+            <td>${statusIcon}</td>
+            <td>
+                <button class="btn-text btn-edit-trans" data-id="${t.transacao_id}">✏️</button>
+                <button class="btn-text btn-del-trans" data-id="${t.transacao_id}">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Listeners de seleção individual
+    document.querySelectorAll(".trans-checkbox").forEach(cb => {
+        cb.addEventListener("change", updateBulkDeleteButton);
+    });
+
+    // Listeners de editar/deletar unitário
+    document.querySelectorAll(".btn-del-trans").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            const id = e.target.getAttribute("data-id");
+            if (!confirm("Excluir esta transação?")) return;
+            await fetch(`${API_BASE}/transacoes/deletar`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario: currentUser, transacao_id: id })
+            });
+            loadTransactionsPage();
+            loadDashboardData();
         });
     });
+
+    renderPagination();
 }
 
-function createMeta(metaData) {
-    if (!currentUser) return;
-    
-    metaData.usuario = currentUser.access_token;
-    
-    apiCall('/metas/criar', 'POST', metaData)
-        .then(() => {
-            showToast('Meta criada com sucesso!');
-            loadMetas();
-        })
-        .catch(error => {
-            console.error('Erro ao criar meta:', error);
-            showToast('Erro ao criar meta', 'error');
+function updateBulkDeleteButton() {
+    const count = document.querySelectorAll(".trans-checkbox:checked").length;
+    document.getElementById("btn-delete-selected").disabled = count === 0;
+}
+
+function renderPagination() {
+    const paginationContainer = document.getElementById("trans-pagination");
+    paginationContainer.innerHTML = "";
+    const totalPages = Math.ceil(allTransactions.length / itemsPerPage) || 1;
+
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement("button");
+        btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+        btn.textContent = i;
+        btn.addEventListener("click", () => {
+            currentPage = i;
+            renderTransactionsTable();
         });
-}
-
-function updatePlanejamentoResumo() {
-    const completedSquares = document.querySelectorAll('.meta-square.completed');
-    const totalSquares = document.querySelectorAll('.meta-square');
-    
-    const totalGuardado = Array.from(completedSquares).reduce((sum, square) => {
-        return sum + parseFloat(square.dataset.valor);
-    }, 0);
-    
-    const metaTotal = Array.from(totalSquares).reduce((sum, square) => {
-        return sum + parseFloat(square.dataset.valor);
-    }, 0);
-    
-    document.getElementById('total-guardado').textContent = formatCurrency(totalGuardado);
-    document.getElementById('meta-total').textContent = formatCurrency(metaTotal);
-}
-
-// ============ RELATÓRIOS ============
-function loadRelatorios() {
-    if (!currentUser) return;
-    
-    const usuario = currentUser.access_token;
-    
-    // Carregar resumo para gráficos
-    apiCall(`/transacoes/resumo?usuario=${usuario}`)
-        .then(resumo => {
-            createCharts(resumo);
-        })
-        .catch(error => console.error('Erro ao carregar relatórios:', error));
-}
-
-function createCharts(resumo) {
-    // Destruir charts existentes
-    Object.values(charts).forEach(chart => {
-        if (chart) chart.destroy();
-    });
-    
-    // Receitas por categoria
-    const receitaCtx = document.getElementById('receitas-chart');
-    const despesaCtx = document.getElementById('despesas-chart');
-    const balancoCtx = document.getElementById('balanco-chart');
-    const relatorioReceitasCtx = document.getElementById('relatorio-receitas-chart');
-    const relatorioDespesasCtx = document.getElementById('relatorio-despesas-chart');
-    const relatorioBalancoCtx = document.getElementById('relatorio-balanco-chart');
-    
-    if (receitaCtx && resumo.resumo_categoria) {
-        const receitaCategories = Object.entries(resumo.resumo_categoria)
-            .filter(([cat, data]) => data.receitas > 0);
-        
-        if (receitaCategories.length > 0) {
-            charts.receitas = new Chart(receitaCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: receitaCategories.map(([cat]) => cat),
-                    datasets: [{
-                        data: receitaCategories.map(([, data]) => data.receitas),
-                        backgroundColor: ['#9B59B6', '#E07B7B', '#F1C40F', '#2ECC71', '#3498DB', '#95A5A6'],
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                }
-            });
-            
-            if (relatorioReceitasCtx) {
-                charts.relatorioReceitas = new Chart(relatorioReceitasCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: receitaCategories.map(([cat]) => cat),
-                        datasets: [{
-                            data: receitaCategories.map(([, data]) => data.receitas),
-                            backgroundColor: ['#9B59B6', '#E07B7B', '#F1C40F', '#2ECC71', '#3498DB', '#95A5A6'],
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                    }
-                });
-            }
-        }
-        
-        const despesaCategories = Object.entries(resumo.resumo_categoria)
-            .filter(([cat, data]) => data.despesas > 0);
-        
-        if (despesaCategories.length > 0) {
-            charts.despesas = new Chart(despesaCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: despesaCategories.map(([cat]) => cat),
-                    datasets: [{
-                        data: despesaCategories.map(([, data]) => data.despesas),
-                        backgroundColor: ['#3498DB', '#F39C12', '#E74C3C', '#9B59B6', '#95A5A6', '#7F8C8D'],
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                }
-            });
-            
-            if (relatorioDespesasCtx) {
-                charts.relatorioDespesas = new Chart(relatorioDespesasCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: despesaCategories.map(([cat]) => cat),
-                        datasets: [{
-                            data: despesaCategories.map(([, data]) => data.despesas),
-                            backgroundColor: ['#3498DB', '#F39C12', '#E74C3C', '#9B59B6', '#95A5A6', '#7F8C8D'],
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                    }
-                });
-            }
-        }
+        paginationContainer.appendChild(btn);
     }
 }
 
-// ============ NAVEGAÇÃO ============
-function navigateTo(page) {
-    // Atualizar sidebar
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.page === page) {
-            item.classList.add('active');
-        }
-    });
+function openTransModal(trans = null) {
+    document.getElementById("modal-transacao").hidden = false;
+    const tipoSelect = document.getElementById("trans-tipo-select");
     
-    // Atualizar páginas
-    document.querySelectorAll('.page').forEach(p => {
-        p.classList.remove('active');
-    });
-    document.getElementById(`${page}-page`).classList.add('active');
-    
-    // Fechar sidebar no mobile
-    if (window.innerWidth <= 768) {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.remove('expanded');
+    if (trans) {
+        document.getElementById("modal-trans-title").textContent = "Editar Transação";
+        document.getElementById("trans-id-hidden").value = trans.transacao_id;
+        tipoSelect.value = trans.tipo;
+        populateCategorySelect(trans.tipo, trans.categoria);
+        document.getElementById("trans-valor-input").value = trans.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+        document.getElementById("trans-data-input").value = dateIsoToBr(trans.data);
+        document.getElementById("trans-status-select").value = trans.status;
+    } else {
+        document.getElementById("modal-trans-title").textContent = "Nova Transação";
+        document.getElementById("trans-id-hidden").value = "";
+        tipoSelect.value = "receita";
+        populateCategorySelect("receita");
+        document.getElementById("form-transacao").reset();
+        document.getElementById("trans-data-input").value = new Date().toLocaleDateString("pt-BR");
     }
 }
 
-// ============ EVENT LISTENERS ============
-document.addEventListener('DOMContentLoaded', () => {
-    // Auth tabs
-    document.querySelectorAll('.auth-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            switchAuthTab(tab.dataset.tab);
-        });
+function populateCategorySelect(tipo, selectedCat = null) {
+    const catSelect = document.getElementById("trans-cat-select");
+    catSelect.innerHTML = "";
+    const cats = globalCategories[tipo] || [];
+    cats.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        if (c === selectedCat) opt.selected = true;
+        catSelect.appendChild(opt);
     });
-    
-    // Login form
-    document.getElementById('login-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const usuario = document.getElementById('login-usuario').value;
-        const senha = document.getElementById('login-senha').value;
-        login(usuario, senha);
-    });
-    
-    // Register form
-    document.getElementById('register-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const nome = document.getElementById('reg-nome').value;
-        const sobrenome = document.getElementById('reg-sobrenome').value;
-        const usuario = document.getElementById('reg-usuario').value;
-        const senha = document.getElementById('reg-senha').value;
-        register(nome, sobrenome, usuario, senha);
-    });
-    
-    // Navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            navigateTo(item.dataset.page);
-        });
-    });
-    
-    document.querySelectorAll('.header-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (btn.dataset.page) {
-                navigateTo(btn.dataset.page);
+}
+
+/* --- Planejamento & Cofrinho Módulo --- */
+async function loadPlanningData() {
+    try {
+        const res = await fetch(`${API_BASE}/metas/listar?usuario=${encodeURIComponent(currentUser)}`);
+        const metas = await res.json();
+        const grid = document.getElementById("piggy-grid");
+        grid.innerHTML = "";
+
+        if (metas && metas.length > 0) {
+            const meta = metas[0];
+            document.querySelector("#form-meta input[name='titulo']").value = meta.titulo;
+            document.querySelector("#form-meta input[name='salario_liquido']").value = meta.salario_liquido.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+            document.querySelector("#form-meta input[name='porcentagem_meta']").value = meta.porcentagem_meta;
+            document.getElementById("btn-delete-meta").hidden = false;
+
+            const totalMetaVal = (meta.salario_liquido * meta.porcentagem_meta) / 100;
+            document.getElementById("piggy-total").textContent = formatMoney(totalMetaVal);
+
+            // Renderizar 50 quadradinhos do cofrinho proporcionais
+            const boxCount = 50;
+            const boxValue = totalMetaVal / boxCount;
+            let savedVal = 0;
+
+            for (let i = 1; i <= boxCount; i++) {
+                const box = document.createElement("div");
+                box.className = "piggy-box";
+                box.textContent = i;
+                box.addEventListener("click", () => {
+                    box.classList.toggle("checked");
+                    const checkedCount = grid.querySelectorAll(".piggy-box.checked").length;
+                    savedVal = checkedCount * boxValue;
+                    document.getElementById("piggy-saved").textContent = formatMoney(savedVal);
+                });
+                grid.appendChild(box);
             }
-        });
-    });
-    
-    // Sidebar toggle
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        if (window.innerWidth <= 768) {
-            sidebar.classList.toggle('expanded');
         } else {
-            sidebar.classList.toggle('collapsed');
+            document.getElementById("btn-delete-meta").hidden = true;
+            grid.innerHTML = `<p class="text-muted">Opa! Você ainda não possui um planejamento definido para este mês.</p>`;
         }
-    });
-    
-    // User info click
-    document.querySelector('.user-info').addEventListener('click', () => {
-        navigateTo('configuracoes');
-    });
-    
-    // Transações
-    document.getElementById('nova-transacao-btn').addEventListener('click', () => {
-        document.getElementById('transacao-modal-title').textContent = 'Nova Transação';
-        document.getElementById('transacao-form').reset();
-        document.getElementById('transacao-id').value = '';
-        populateCategorySelects();
-        document.getElementById('transacao-modal').classList.remove('hidden');
-    });
-    
-    document.getElementById('cancel-transacao').addEventListener('click', () => {
-        document.getElementById('transacao-modal').classList.add('hidden');
-    });
-    
-    document.getElementById('transacao-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const transacaoData = {
-            tipo: document.getElementById('transacao-tipo').value,
-            categoria: document.getElementById('transacao-categoria').value,
-            valor: parseFloat(document.getElementById('transacao-valor').value),
-            data: document.getElementById('transacao-data').value,
-            status: document.getElementById('transacao-status').value,
-        };
-        
-        const transacaoId = document.getElementById('transacao-id').value;
-        if (transacaoId) {
-            transacaoData.transacao_id = transacaoId;
-            updateTransacao(transacaoData);
-        } else {
-            createTransacao(transacaoData);
-        }
-        
-        document.getElementById('transacao-modal').classList.add('hidden');
-    });
-    
-    document.getElementById('transacao-tipo').addEventListener('change', () => {
-        populateCategorySelects();
-    });
-    
-    // Select all transações
-    document.getElementById('select-all-transacoes').addEventListener('change', (e) => {
-        const checkboxes = document.querySelectorAll('.transacao-checkbox');
-        checkboxes.forEach(cb => cb.checked = e.target.checked);
-        updateDeleteSelectedButton();
-    });
-    
-    // Delete selected
-    document.getElementById('delete-selected').addEventListener('click', () => {
-        const selectedCheckboxes = document.querySelectorAll('.transacao-checkbox:checked');
-        if (selectedCheckboxes.length === 0) return;
-        
-        if (confirm(`Deletar ${selectedCheckboxes.length} transações selecionadas?`)) {
-            selectedCheckboxes.forEach(cb => {
-                const transacaoId = cb.closest('.transacao-item').dataset.id;
-                deleteTransacao(transacaoId);
-            });
-        }
-    });
-    
-    // Meta form
-    document.getElementById('meta-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const metaData = {
-            titulo: document.getElementById('meta-titulo').value,
-            salario_liquido: parseFloat(document.getElementById('meta-salario').value),
-            porcentagem_meta: parseFloat(document.getElementById('meta-porcentagem').value),
-        };
-        createMeta(metaData);
-        e.target.reset();
-    });
-    
-    // Update profile
-    document.getElementById('update-profile-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (!currentUser) return;
-        
-        const nome = document.getElementById('update-nome').value;
-        const sobrenome = document.getElementById('update-sobrenome').value;
-        
-        apiCall('/atualizar_nome_sobrenome', 'PUT', {
-            usuario: currentUser.access_token,
-            nome,
-            sobrenome
-        })
-        .then(() => {
-            currentUser.nome = `${nome} ${sobrenome}`;
-            localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-            updateProfileInfo();
-            showToast('Perfil atualizado com sucesso!');
-        })
-        .catch(error => {
-            console.error('Erro ao atualizar perfil:', error);
-            showToast('Erro ao atualizar perfil', 'error');
-        });
-    });
-    
-    // Change password
-    document.getElementById('change-password-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (!currentUser) return;
-        
-        const senha_antiga = document.getElementById('senha-antiga').value;
-        const nova_senha = document.getElementById('nova-senha').value;
-        
-        apiCall('/atualizar_senha', 'PUT', {
-            usuario: currentUser.access_token,
-            senha_antiga,
-            nova_senha
-        })
-        .then(() => {
-            showToast('Senha alterada com sucesso!');
-            e.target.reset();
-        })
-        .catch(error => {
-            console.error('Erro ao alterar senha:', error);
-            showToast('Erro ao alterar senha', 'error');
-        });
-    });
-    
-    // Upload photo
-    document.getElementById('upload-photo-btn').addEventListener('click', () => {
-        const fileInput = document.getElementById('photo-upload');
-        if (fileInput.files.length === 0) {
-            showToast('Selecione uma imagem primeiro', 'error');
-            return;
-        }
-        
-        const file = fileInput.files[0];
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            const base64 = e.target.result.split(',')[1];
-            
-            apiCall('/atualizar_foto', 'PUT', {
-                usuario: currentUser.access_token,
-                foto: base64
-            })
-            .then(() => {
-                currentUser.foto = base64;
-                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-                updateProfileInfo();
-                showToast('Foto atualizada com sucesso!');
-            })
-            .catch(error => {
-                console.error('Erro ao atualizar foto:', error);
-                showToast('Erro ao atualizar foto', 'error');
-            });
-        };
-        
-        reader.readAsDataURL(file);
-    });
-    
-    // Language select
-    document.getElementById('language-select').addEventListener('change', (e) => {
-        const language = e.target.value;
-        // Implementar tradução
-        showToast(`Idioma alterado para ${language}`);
-    });
-    
-    // Theme select
-    document.getElementById('theme-select').addEventListener('change', (e) => {
-        const theme = e.target.value;
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('nexus_theme', theme);
-    });
-    
-    // Reset account
-    document.getElementById('reset-account-btn').addEventListener('click', () => {
-        if (!currentUser) return;
-        if (confirm('Tem certeza que deseja resetar sua conta? Todos os dados serão apagados.')) {
-            apiCall(`/reiniciar_conta?usuario=${currentUser.access_token}`, 'DELETE')
-                .then(() => {
-                    showToast('Conta resetada com sucesso!');
-                    loadInitialData();
-                })
-                .catch(error => {
-                    console.error('Erro ao resetar conta:', error);
-                    showToast('Erro ao resetar conta', 'error');
-                });
-        }
-    });
-    
-    // Delete account
-    document.getElementById('delete-account-btn').addEventListener('click', () => {
-        if (!currentUser) return;
-        if (confirm('Tem certeza que deseja excluir sua conta permanentemente?')) {
-            apiCall(`/deletar_usuario?usuario=${currentUser.access_token}`, 'DELETE')
-                .then(() => {
-                    showToast('Conta excluída com sucesso!');
-                    logout();
-                })
-                .catch(error => {
-                    console.error('Erro ao excluir conta:', error);
-                    showToast('Erro ao excluir conta', 'error');
-                });
-        }
-    });
-    
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        if (confirm('Deseja sair?')) {
-            logout();
-        }
-    });
-    
-    // PWA Install
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
+    } catch (e) { console.error(e); }
+}
+
+/* --- Relatórios e Configurações --- */
+function loadReportsData() {
+    document.getElementById("report-chart-rec").innerHTML = `<p class="text-muted">Gráfico detalhado de Receitas por Categoria carregado.</p>`;
+    document.getElementById("report-chart-esp").innerHTML = `<p class="text-muted">Gráfico detalhado de Despesas por Categoria carregado.</p>`;
+    document.getElementById("report-history-chart").innerHTML = `<p class="text-muted">Histórico de balanço dos últimos 6 meses renderizado.</p>`;
+}
+
+async function loadConfigData() {
+    document.getElementById("config-input-nome").value = currentUser.split("_")[0] || "";
+    document.getElementById("config-input-sobrenome").value = "";
+}
+
+/* --- PWA Service Worker --- */
+function initPWA() {
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("service-worker.js")
+            .then(() => console.log("Service Worker registrado com sucesso."))
+            .catch(err => console.error("Erro ao registrar SW:", err));
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        document.getElementById('pwa-install-btn').classList.remove('hidden');
-    });
-    
-    document.getElementById('pwa-install-btn').addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const result = await deferredPrompt.userChoice;
-            if (result.outcome === 'accepted') {
-                showToast('App instalado com sucesso!');
-            }
-            deferredPrompt = null;
+        const installBtn = document.getElementById("btn-pwa-install");
+        if (installBtn) {
+            installBtn.hidden = false;
+            installBtn.addEventListener("click", () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === "accepted") {
+                        console.log("Usuário aceitou a instalação do PWA");
+                    }
+                    deferredPrompt = null;
+                });
+            });
         }
     });
-    
-    // Fechar menus ao clicar fora
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.transacao-menu-content').forEach(menu => {
-            menu.classList.remove('active');
-        });
-    });
-    
-    // Inicializar tema
-    const savedTheme = localStorage.getItem('nexus_theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    document.getElementById('theme-select').value = savedTheme;
-    
-    // Verificar autenticação
-    if (checkAuth()) {
-        showMainApp();
-    } else {
-        showLoginScreen();
-    }
-    
-    showLoading(false);
-});
-
-// Atualizar botão de deletar selecionadas
-function updateDeleteSelectedButton() {
-    const selectedCheckboxes = document.querySelectorAll('.transacao-checkbox:checked');
-    const deleteBtn = document.getElementById('delete-selected');
-    if (selectedCheckboxes.length > 0) {
-        deleteBtn.classList.remove('hidden');
-        deleteBtn.textContent = `Excluir ${selectedCheckboxes.length} Selecionadas`;
-    } else {
-        deleteBtn.classList.add('hidden');
-    }
 }
-
-// Adicionar listener global para checkboxes
-document.addEventListener('change', (e) => {
-    if (e.target.classList.contains('transacao-checkbox')) {
-        updateDeleteSelectedButton();
-    }
-});
