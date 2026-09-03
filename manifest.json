@@ -1,4 +1,3 @@
-// manifest.json
 {
   "name": "Nexus - Gestão Financeira",
   "short_name": "Nexus",
@@ -8,7 +7,7 @@
   "orientation": "portrait",
   "theme_color": "#8b7fe8",
   "background_color": "#f8f6ff",
-  "categories": ["finance", "productivity", "utilities"],
+  "categories": ["finance", "productivity"],
   "lang": "pt-BR",
   "dir": "ltr",
   "icons": [
@@ -61,63 +60,18 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "screenshots/dashboard.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Dashboard do Nexus"
-    },
-    {
-      "src": "screenshots/mobile.png",
-      "sizes": "360x640",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Nexus Mobile"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Dashboard",
       "short_name": "Home",
-      "description": "Ir para o Dashboard",
       "url": "/#/dashboard",
-      "icons": [
-        {
-          "src": "icons/icon-96x96.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Transações",
       "short_name": "Transações",
-      "description": "Ver todas as transações",
       "url": "/#/transacoes",
-      "icons": [
-        {
-          "src": "icons/icon-96x96.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Planejamento",
-      "short_name": "Metas",
-      "description": "Gerenciar metas financeiras",
-      "url": "/#/planejamento",
-      "icons": [
-        {
-          "src": "icons/icon-96x96.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
-  ],
-  "related_applications": [],
-  "prefer_related_applications": false
+  ]
 }
