@@ -17,6 +17,7 @@
         user: null,
         userName: null,
         userFullName: null,
+        userFoto: null,
         theme: localStorage.getItem(STORAGE_THEME) || 'light',
         lang: localStorage.getItem(STORAGE_LANG) || 'pt',
         currentView: 'dashboard',
@@ -61,7 +62,7 @@
             data: 'Data',
             status: 'Situação',
             acoes: 'Ações',
-            efetuada: 'Efetuada',
+            pago: 'Pago',
             pendente: 'Pendente',
             deletar: 'Deletar',
             editar: 'Editar',
@@ -127,7 +128,7 @@
             data: 'Date',
             status: 'Status',
             acoes: 'Actions',
-            efetuada: 'Completed',
+            pago: 'Paid',
             pendente: 'Pending',
             deletar: 'Delete',
             editar: 'Edit',
@@ -334,7 +335,9 @@
         },
 
         async listarMetas(usuario) {
-            return this.fetchJSON(`/metas/listar?usuario=${encodeURIComponent(usuario)}`);
+            // A API responde { "metas": [...] }, não um array direto
+            const data = await this.fetchJSON(`/metas/listar?usuario=${encodeURIComponent(usuario)}`);
+            return data.metas || [];
         },
 
         async criarMeta(usuario, titulo, salario_liquido, porcentagem_meta) {
@@ -369,7 +372,9 @@
         },
 
         async listarTransacoes(usuario) {
-            return this.fetchJSON(`/transacoes/listar?usuario=${encodeURIComponent(usuario)}`);
+            // A API responde { "transacoes": [...] }, não um array direto
+            const data = await this.fetchJSON(`/transacoes/listar?usuario=${encodeURIComponent(usuario)}`);
+            return data.transacoes || [];
         },
 
         async getResumo(usuario) {
@@ -386,7 +391,14 @@
         async deletarTransacao(usuario, transacao_id) {
             return this.fetchJSON('/transacoes/deletar', {
                 method: 'DELETE',
-                body: JSON.stringify({ usuario, transacao_id }),
+                body: JSON.stringify({ usuario, transacao_id: Number(transacao_id) }),
+            });
+        },
+
+        async atualizarFoto(usuario, foto) {
+            return this.fetchJSON('/atualizar_foto', {
+                method: 'PUT',
+                body: JSON.stringify({ usuario, foto }),
             });
         },
     };
@@ -528,6 +540,7 @@
         state.user = saved.usuario;
         state.userFullName = saved.nome || '';
         state.userName = getFirstWord(saved.nome || '');
+        state.userFoto = saved.foto || null;
 
         try {
             const resumo = await api.getResumo(state.user);
@@ -538,6 +551,7 @@
             state.user = null;
             state.userName = null;
             state.userFullName = null;
+            state.userFoto = null;
             return false;
         }
     }
@@ -553,11 +567,12 @@
         updateHeaderAuthUI();
     }
 
-    function doLogin(user, nomeCompleto) {
+    function doLogin(user, nomeCompleto, foto) {
         state.user = user;
         state.userFullName = nomeCompleto;
         state.userName = getFirstWord(nomeCompleto);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ usuario: user, nome: nomeCompleto }));
+        state.userFoto = foto || null;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ usuario: user, nome: nomeCompleto, foto: foto || '' }));
         navigate('dashboard');
         loadDashboardData();
         updateHeaderAuthUI();
@@ -568,6 +583,7 @@
         state.user = null;
         state.userName = null;
         state.userFullName = null;
+        state.userFoto = null;
         state.resumo = null;
         state.transactions = [];
         state.metas = [];
@@ -661,8 +677,8 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
                     <h1 style="font-weight:600;font-size:1.5rem;">${t('bemVindo')}, ${nome} 👋</h1>
                     <div style="display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="window.navigate('configuracoes')">
-                        <div style="width:40px;height:40px;border-radius:50%;background:var(--color-purple-bg);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--color-purple);font-weight:600;border:2px solid var(--color-purple);">
-                            ${fullName ? fullName.charAt(0).toUpperCase() : '👤'}
+                        <div style="width:40px;height:40px;border-radius:50%;background:${state.userFoto ? `url('${state.userFoto}') center/cover` : 'var(--color-purple-bg)'};display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--color-purple);font-weight:600;border:2px solid var(--color-purple);">
+                            ${state.userFoto ? '' : (fullName ? fullName.charAt(0).toUpperCase() : '👤')}
                         </div>
                         <span style="font-weight:500;">${fullName || t('perfil')}</span>
                     </div>
@@ -723,11 +739,13 @@
                     <button class="btn-primary" onclick="window.navigate('planejamento')">${t('definirPlanejamento')}</button>`;
         }
         const meta = state.metas[0];
+        // A API não devolve a porcentagem cadastrada, só o valor-alvo já calculado (meta.meta)
+        const percentual = meta.salario_liquido > 0 ? Math.round((meta.meta / meta.salario_liquido) * 100) : 0;
         return `
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                 <div><strong>${meta.titulo}</strong></div>
                 <div>💰 ${formatCurrency(meta.salario_liquido)}</div>
-                <div>🎯 ${meta.porcentagem_meta}%</div>
+                <div>🎯 ${percentual}% (${formatCurrency(meta.meta)})</div>
                 <button class="btn-secondary" onclick="window.navigate('planejamento')">Ver detalhes →</button>
             </div>
         `;
@@ -773,11 +791,10 @@
                         <tbody>
                             ${pageItems.length === 0 ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">${t('semTransacoes')}</td></tr>` : ''}
                             ${pageItems.map(tx => {
-                                // Usa o status vindo do backend; só cai para o cálculo por data
-                                // se o registro (ainda) não tiver status definido.
-                                const isEfetuada = tx.status ? tx.status === 'efetuada' : isDatePastOrToday(tx.data);
-                                const statusText = isEfetuada ? t('efetuada') : t('pendente');
-                                const statusBadge = isEfetuada ? 'badge-success' : 'badge-warning';
+                                // A API usa "pago"/"pendente" como valores de status (default "pago")
+                                const isPago = tx.status ? tx.status === 'pago' : isDatePastOrToday(tx.data);
+                                const statusText = isPago ? t('pago') : t('pendente');
+                                const statusBadge = isPago ? 'badge-success' : 'badge-warning';
                                 return `
                                     <tr>
                                         <td><input type="checkbox" class="row-select" data-id="${tx.id}" /></td>
@@ -815,7 +832,9 @@
     function renderPlanejamento() {
         const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
         const totalGuardado = 0; // Placeholder - será calculado com base nos cofrinhos
-        const metaTotal = meta ? meta.salario_liquido * (meta.porcentagem_meta / 100) : 0;
+        // A API já devolve o valor-alvo pronto no campo "meta" (não devolve a porcentagem cadastrada)
+        const metaTotal = meta ? meta.meta : 0;
+        const percentualAtual = meta && meta.salario_liquido > 0 ? Math.round((meta.meta / meta.salario_liquido) * 100) : '';
         const cells = meta ? Math.ceil(metaTotal / 50) : 12; // Divide em 12 porções padrão
 
         return `
@@ -836,7 +855,8 @@
                             </div>
                             <div class="form-group">
                                 <label>${t('porcentagemMeta')}</label>
-                                <input type="number" id="meta-porcentagem" value="${meta ? meta.porcentagem_meta : ''}" placeholder="10" min="0" max="100" required />
+                                <input type="number" id="meta-porcentagem" value="${percentualAtual}" placeholder="10" min="0" max="100" required />
+                                ${meta ? `<small style="color:var(--text-muted);">Valor aproximado (a API não retorna a porcentagem original salva).</small>` : ''}
                             </div>
                         </div>
                         <button type="submit" class="btn-primary">${meta ? t('editar') : t('criar')}</button>
@@ -913,16 +933,17 @@
                 <div class="card" style="margin-bottom:16px;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">👤 ${t('perfil')}</h3>
                     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                        <div style="width:64px;height:64px;border-radius:50%;background:var(--color-purple-bg);display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--color-purple);border:3px solid var(--color-purple);">
-                            ${state.userFullName ? state.userFullName.charAt(0).toUpperCase() : '👤'}
+                        <div style="width:64px;height:64px;border-radius:50%;background:${state.userFoto ? `url('${state.userFoto}') center/cover` : 'var(--color-purple-bg)'};display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--color-purple);border:3px solid var(--color-purple);">
+                            ${state.userFoto ? '' : (state.userFullName ? state.userFullName.charAt(0).toUpperCase() : '👤')}
                         </div>
                         <div>
                             <div><strong>${t('nome')}:</strong> ${state.userFullName || ''}</div>
                             <div><strong>${t('usuario')}:</strong> ${state.user || ''}</div>
                         </div>
                     </div>
-                    <div style="margin-top:12px;">
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
                         <button class="btn-secondary" onclick="window.updateProfile()">✏️ ${t('editar')} ${t('nome')}</button>
+                        <button class="btn-secondary" onclick="window.updatePhoto()">🖼️ ${t('alterarFoto')}</button>
                     </div>
                 </div>
 
@@ -997,7 +1018,7 @@
                 try {
                     const result = await api.login(user, pass);
                     if (result && result.nome) {
-                        doLogin(user, result.nome);
+                        doLogin(user, result.nome, result.foto);
                         showToast(result.boas_vindas || `${t('bemVindo')}, ${result.nome}!`, 'success');
                     } else {
                         showToast('Erro ao fazer login', 'error');
@@ -1138,8 +1159,8 @@
                         <div class="form-group">
                             <label>${t('status')}</label>
                             <select id="tx-status">
-                                <option value="pendente" ${!tx || tx.status !== 'efetuada' ? 'selected' : ''}>${t('pendente')}</option>
-                                <option value="efetuada" ${tx && tx.status === 'efetuada' ? 'selected' : ''}>${t('efetuada')}</option>
+                                <option value="pendente" ${tx && tx.status !== 'pago' ? 'selected' : (!tx ? 'selected' : '')}>${t('pendente')}</option>
+                                <option value="pago" ${tx && tx.status === 'pago' ? 'selected' : ''}>${t('pago')}</option>
                             </select>
                         </div>
                         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
@@ -1259,7 +1280,7 @@
         const total = document.querySelectorAll('.cofrinho-cell').length;
         const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
         if (meta && total > 0) {
-            const metaTotal = meta.salario_liquido * (meta.porcentagem_meta / 100);
+            const metaTotal = meta.meta;
             const guardado = (completed / total) * metaTotal;
             const guardadoEl = document.getElementById('cofrinho-guardado');
             const progressoEl = document.getElementById('cofrinho-progresso');
@@ -1275,9 +1296,22 @@
             await api.atualizarNomeSobrenome(state.user, nome, sobrenome);
             state.userFullName = `${nome} ${sobrenome}`.trim();
             state.userName = nome;
-            // Mantém a sessão persistida em sincronia com o novo nome
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ usuario: state.user, nome: state.userFullName }));
+            // Mantém a sessão persistida em sincronia com o novo nome (preservando a foto já salva)
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ usuario: state.user, nome: state.userFullName, foto: state.userFoto || '' }));
             showToast('Perfil atualizado!', 'success');
+            renderView('configuracoes');
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    };
+    window.updatePhoto = async () => {
+        const foto = prompt('URL da sua foto de perfil:', state.userFoto || '');
+        if (foto === null) return;
+        try {
+            await api.atualizarFoto(state.user, foto);
+            state.userFoto = foto;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ usuario: state.user, nome: state.userFullName || '', foto: foto || '' }));
+            showToast('Foto atualizada!', 'success');
             renderView('configuracoes');
         } catch (err) {
             showToast('Erro: ' + (err.message || ''), 'error');
