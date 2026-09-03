@@ -2,15 +2,12 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#f5f0ff" />
-    <meta name="description" content="Nexus - Plataforma Fintech para gestão financeira inteligente" />
-    <link rel="manifest" href="manifest.json" />
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#8b7fe8" />
     <title>Nexus - Gestão Financeira</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -18,76 +15,41 @@
         <!-- Header -->
         <header id="main-header">
             <div class="header-left">
-                <button id="menu-toggle" class="icon-btn" aria-label="Menu">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                </button>
-                <span class="brand">Nexus</span>
+                <button id="menu-toggle" class="icon-btn">☰</button>
+                <span class="brand">💰 Nexus</span>
             </div>
             <div class="header-right">
-                <button id="pwa-install-btn" class="btn-primary btn-sm" style="display:none;">📲 Download App</button>
-                <button id="theme-toggle" class="icon-btn" aria-label="Alternar tema">
-                    <span id="theme-icon">🌙</span>
-                </button>
-                <a href="#/login" id="header-login-link" class="nav-link">Entrar</a>
+                <button id="theme-toggle" class="icon-btn">🌙</button>
+                <a href="#/login" id="header-login-link" class="nav-link" style="display:none;">Entrar</a>
+                <span id="header-user" style="display:none;font-weight:500;"></span>
             </div>
         </header>
 
         <div class="app-container">
             <!-- Sidebar -->
-            <nav id="sidebar" class="sidebar collapsed">
+            <nav id="sidebar" class="sidebar">
                 <ul class="nav-list">
-                    <li><a href="#/dashboard" class="nav-item" data-tooltip="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></li>
-                    <li><a href="#/transacoes" class="nav-item" data-tooltip="Transações"><span class="nav-icon">💳</span><span class="nav-label">Transações</span></a></li>
-                    <li><a href="#/planejamento" class="nav-item" data-tooltip="Planejamento"><span class="nav-icon">🎯</span><span class="nav-label">Planejamento</span></a></li>
-                    <li><a href="#/relatorios" class="nav-item" data-tooltip="Relatórios"><span class="nav-icon">📈</span><span class="nav-label">Relatórios</span></a></li>
-                    <li><a href="#/configuracoes" class="nav-item" data-tooltip="Configurações"><span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span></a></li>
+                    <li><a href="#/dashboard" class="nav-item active" data-view="dashboard">📊 Dashboard</a></li>
+                    <li><a href="#/transacoes" class="nav-item" data-view="transacoes">💳 Transações</a></li>
+                    <li><a href="#/planejamento" class="nav-item" data-view="planejamento">🎯 Planejamento</a></li>
+                    <li><a href="#/relatorios" class="nav-item" data-view="relatorios">📈 Relatórios</a></li>
+                    <li><a href="#/configuracoes" class="nav-item" data-view="configuracoes">⚙️ Configurações</a></li>
                 </ul>
                 <div class="sidebar-footer">
-                    <button id="sidebar-logout" class="nav-item" data-tooltip="Sair"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
+                    <button id="sidebar-logout" class="nav-item">🚪 Sair</button>
                 </div>
             </nav>
 
             <!-- Main Content -->
             <main id="main-content">
-                <div id="view-container"></div>
+                <div id="view-container">
+                    <!-- O JavaScript vai renderizar aqui -->
+                    <div style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</div>
+                </div>
             </main>
         </div>
     </div>
 
     <script src="script.js"></script>
-    
-    <!-- REGISTRO DO SERVICE WORKER - CORRIGIDO -->
-    <script>
-    // Registro do Service Worker - VERSÃO CORRIGIDA
-    if ('serviceWorker' in navigator) {
-        // Primeiro, desregistra qualquer SW antigo
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-            registrations.forEach(reg => reg.unregister());
-        });
-        
-        // Depois registra o novo
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(registration => {
-                console.log('SW registrado com sucesso!');
-                
-                // Verifica atualizações
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.log('Nova versão disponível!');
-                            if (confirm('Nova versão disponível! Atualizar agora?')) {
-                                newWorker.postMessage('SKIP_WAITING');
-                                window.location.reload();
-                            }
-                        }
-                    });
-                });
-            })
-            .catch(err => {
-                console.warn('Erro ao registrar SW:', err);
-            });
-    }
-    </script>
 </body>
 </html>
