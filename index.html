@@ -34,21 +34,20 @@
             <!-- Sidebar -->
             <nav id="sidebar" class="sidebar">
                 <ul class="nav-list">
-                    <li><a href="#/dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></li>
-                    <li><a href="#/transacoes" class="nav-item" data-view="transacoes" data-tooltip="Transações"><span class="nav-icon">💳</span><span class="nav-label">Transações</span></a></li>
-                    <li><a href="#/planejamento" class="nav-item" data-view="planejamento" data-tooltip="Planejamento"><span class="nav-icon">🎯</span><span class="nav-label">Planejamento</span></a></li>
-                    <li><a href="#/relatorios" class="nav-item" data-view="relatorios" data-tooltip="Relatórios"><span class="nav-icon">📈</span><span class="nav-label">Relatórios</span></a></li>
-                    <li><a href="#/configuracoes" class="nav-item" data-view="configuracoes" data-tooltip="Configurações"><span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span></a></li>
+                    <li><a href="#/dashboard" class="nav-item active" data-view="dashboard">📊 Dashboard</a></li>
+                    <li><a href="#/transacoes" class="nav-item" data-view="transacoes">💳 Transações</a></li>
+                    <li><a href="#/planejamento" class="nav-item" data-view="planejamento">🎯 Planejamento</a></li>
+                    <li><a href="#/relatorios" class="nav-item" data-view="relatorios">📈 Relatórios</a></li>
+                    <li><a href="#/configuracoes" class="nav-item" data-view="configuracoes">⚙️ Configurações</a></li>
                 </ul>
                 <div class="sidebar-footer">
-                    <button id="sidebar-logout" class="nav-item" data-tooltip="Sair"><span class="nav-icon">🚪</span><span class="nav-label">Sair</span></button>
+                    <button id="sidebar-logout" class="nav-item">🚪 Sair</button>
                 </div>
             </nav>
 
             <!-- Main Content -->
             <main id="main-content">
                 <div id="view-container">
-                    <!-- O JavaScript vai renderizar aqui -->
                     <div style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</div>
                 </div>
             </main>
@@ -67,19 +66,6 @@
         navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
             .then(registration => {
                 console.log('SW registrado com sucesso!');
-
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.log('Nova versão disponível!');
-                            if (confirm('Nova versão disponível! Atualizar agora?')) {
-                                newWorker.postMessage('SKIP_WAITING');
-                                window.location.reload();
-                            }
-                        }
-                    });
-                });
             })
             .catch(err => {
                 console.warn('Erro ao registrar SW:', err);
