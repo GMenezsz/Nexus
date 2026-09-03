@@ -2,7 +2,7 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
-console.log('🔵 SCRIPT CARREGADO - v6');
+console.log('🔵 SCRIPT CARREGADO - v7');
 
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
@@ -515,7 +515,7 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
-    console.log('📊 Renderizando Dashboard - v6');
+    console.log('📊 Renderizando Dashboard - v7');
     console.log('Receitas:', receitas, 'Despesas:', despesas);
 
     // Função para renderizar a legenda estilizada
@@ -874,31 +874,53 @@ function renderRelatorios() {
     const despesas = state.resumo?.despesas || 0;
     const balanco = receitas - despesas;
     
+    const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+    const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
+    
     function renderCategoryList(tipo) {
         const totals = groupByCategoria(tipo);
         const entries = Object.entries(totals);
         const total = entries.reduce((sum, [_, val]) => sum + val, 0);
         
         if (entries.length === 0 || total === 0) {
-            return `<p class="text-muted text-center">Nenhuma ${tipo === 'receita' ? 'receita' : 'despesa'} cadastrada</p>`;
+            return `<p class="text-muted text-center" style="padding:16px 0;">Nenhuma ${tipo === 'receita' ? 'receita' : 'despesa'} cadastrada</p>`;
         }
         
         return entries.map(([categoria, valor], index) => {
-            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+            const pct = total > 0 ? ((valor / total) * 100).toFixed(2) : 0;
             const color = CHART_COLORS[index % CHART_COLORS.length];
             return `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
-                    <div style="display:flex;align-items:center;gap:8px;">
+                <div style="padding:12px 0;border-bottom:1px solid var(--border-color);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
                         <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                        <span style="font-weight:500;">${categoria}</span>
+                        <span style="font-weight:600;font-size:1rem;color:var(--text-primary);">${categoria}</span>
                     </div>
-                    <div>
-                        <span style="font-weight:600;">${formatCurrency(valor)}</span>
-                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding-left:22px;">
+                        <span style="font-weight:500;color:var(--text-secondary);">${formatCurrency(valor)}</span>
+                        <span style="color:var(--text-muted);font-size:0.85rem;">Porcentagem: ${pct}%</span>
                     </div>
                 </div>
             `;
         }).join('');
+    }
+    
+    function renderBalancoMensal() {
+        return `
+            <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;">
+                    <span style="font-weight:500;font-size:0.95rem;">Receitas</span>
+                    <span style="color:var(--color-success);font-weight:600;font-size:1rem;">${formatCurrency(receitas)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;">
+                    <span style="font-weight:500;font-size:0.95rem;">Despesas</span>
+                    <span style="color:var(--color-danger);font-weight:600;font-size:1rem;">${formatCurrency(despesas)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
+                    <span style="font-weight:700;font-size:1rem;">Balanço</span>
+                    <span style="color:var(--color-purple);font-weight:700;font-size:1.1rem;">${formatCurrency(balanco)}</span>
+                </div>
+            </div>
+        `;
     }
 
     return `
@@ -906,35 +928,36 @@ function renderRelatorios() {
             <h1>📈 Relatórios</h1>
             
             <div class="card">
-                <h3>📊 Balanço Mensal</h3>
-                <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;">
-                        <span style="font-weight:500;">Receitas</span>
-                        <span style="color:var(--color-success);font-weight:600;font-size:1.1rem;">${formatCurrency(receitas)}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;">
-                        <span style="font-weight:500;">Despesas</span>
-                        <span style="color:var(--color-danger);font-weight:600;font-size:1.1rem;">${formatCurrency(despesas)}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
-                        <span style="font-weight:600;">Balanço</span>
-                        <span style="color:var(--color-purple);font-weight:700;font-size:1.3rem;">${formatCurrency(balanco)}</span>
-                    </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3>${mesCapitalizado}</h3>
                 </div>
+                
+                <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Balanço Mensal</h4>
+                ${renderBalancoMensal()}
             </div>
 
-            <div class="card">
-                <h3>📈 Receitas por Categoria</h3>
-                <div style="margin-top:16px;">
+            <div class="card" style="margin-top:24px;">
+                <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Receitas por Categorias</h4>
+                <div style="margin-top:8px;">
                     ${renderCategoryList('receita')}
                 </div>
+                ${Object.keys(groupByCategoria('receita')).length > 0 ? `
+                    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                        ${formatCurrency(receitas)} Total
+                    </div>
+                ` : ''}
             </div>
 
-            <div class="card">
-                <h3>📉 Despesas por Categoria</h3>
-                <div style="margin-top:16px;">
+            <div class="card" style="margin-top:24px;">
+                <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Despesas por Categorias</h4>
+                <div style="margin-top:8px;">
                     ${renderCategoryList('despesa')}
                 </div>
+                ${Object.keys(groupByCategoria('despesa')).length > 0 ? `
+                    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
+                        ${formatCurrency(despesas)} Total
+                    </div>
+                ` : ''}
             </div>
         </div>
     `;
