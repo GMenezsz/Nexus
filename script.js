@@ -1725,6 +1725,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('sidebar').classList.toggle('open');
     });
 
+    // Fecha o menu lateral ao tocar fora dele (no fundo escurecido) no celular.
+    document.addEventListener('click', (e) => {
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        if (!sidebar || !sidebar.classList.contains('open')) return;
+        if (sidebar.contains(e.target) || e.target === menuToggle) return;
+        sidebar.classList.remove('open');
+    });
+
     document.getElementById('theme-toggle')?.addEventListener('click', () => {
         setTheme(state.theme === 'light' ? 'dark' : 'light');
     });
