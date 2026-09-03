@@ -22,7 +22,7 @@ const state = {
     metas: [],
     resumo: null,
     categories: { receita: [], despesa: [] },
-    filterType: null // 'receita', 'despesa', ou null para todos
+    filterType: null
 };
 
 // Guarda o evento de instalação da PWA até o usuário clicar no botão
@@ -331,7 +331,6 @@ function checkSession() {
 }
 
 function doLogin(user, nomeCompleto, foto) {
-    // Formata o nome com .title()
     const nomeFormatado = formatName(nomeCompleto);
     
     state.user = user;
@@ -339,7 +338,6 @@ function doLogin(user, nomeCompleto, foto) {
     state.userName = nomeFormatado.split(' ')[0];
     state.userFoto = foto || null;
     
-    // Salva no localStorage
     localStorage.setItem(STORAGE_KEY, user);
     localStorage.setItem(USER_NAME_KEY, state.userName);
     localStorage.setItem(USER_FULL_KEY, state.userFullName);
@@ -613,7 +611,6 @@ function renderTransacoes() {
     
     let transacoes = state.transactions || [];
     
-    // Aplica filtro baseado na view atual
     const view = state.currentView;
     if (view === 'receitas') {
         transacoes = transacoes.filter(t => t.tipo === 'receita');
@@ -622,7 +619,6 @@ function renderTransacoes() {
     }
     
     const titulo = view === 'receitas' ? '💰 Receitas' : view === 'despesas' ? '💸 Despesas' : '💳 Transações';
-    const showFilterBanner = view === 'receitas' || view === 'despesas';
 
     return `
         <div class="view">
@@ -630,15 +626,6 @@ function renderTransacoes() {
                 <h1>${titulo}</h1>
                 <button class="btn-primary" onclick="openTransactionModal()">+ Nova Transação</button>
             </div>
-
-            ${showFilterBanner ? `
-                <div class="card" style="margin-bottom:16px;background:var(--bg-input);border-color:${view === 'receitas' ? 'var(--color-success)' : 'var(--color-danger)'};">
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                        <span><strong>${view === 'receitas' ? '📈' : '📉'} Mostrando apenas ${view === 'receitas' ? 'Receitas' : 'Despesas'}</strong></span>
-                        <button class="btn-secondary" onclick="navigate('transacoes')">Ver todas →</button>
-                    </div>
-                </div>
-            ` : ''}
 
             <div class="card-grid">
                 <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
@@ -666,7 +653,6 @@ function renderTransacoes() {
                             <th style="width:30px;">
                                 <input type="checkbox" id="select-all" onchange="toggleAllCheckboxes()" />
                             </th>
-                            <th>Tipo</th>
                             <th>Categoria</th>
                             <th>Valor</th>
                             <th>Data</th>
@@ -676,17 +662,15 @@ function renderTransacoes() {
                     </thead>
                     <tbody>
                         ${transacoes.length === 0 ? `
-                            <tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Nenhuma transação encontrada</td></tr>
                         ` : transacoes.map(tx => {
                             const isPago = tx.status === 'pago' || tx.status === 'efetuada';
                             const statusText = isPago ? '✅ Paga' : '⏳ Pendente';
                             const statusClass = isPago ? 'badge-success' : 'badge-warning';
                             const valorColor = tx.tipo === 'receita' ? 'var(--color-success)' : 'var(--color-danger)';
-                            const tipoIcon = tx.tipo === 'receita' ? '📈' : '📉';
                             return `
                                 <tr>
                                     <td class="td-checkbox"><input type="checkbox" class="row-select" data-id="${tx.id}" onchange="updateBulkDeleteButton()" /></td>
-                                    <td data-label="Tipo">${tipoIcon} ${tx.tipo}</td>
                                     <td data-label="Categoria">${tx.categoria}</td>
                                     <td data-label="Valor" style="color:${valorColor};">${formatCurrency(tx.valor)}</td>
                                     <td data-label="Data">${formatDateBR(tx.data)}</td>
@@ -845,7 +829,6 @@ function renderConfiguracoes() {
 // EVENT BINDING
 // ========================================
 function bindEvents(view) {
-    // Login/Register tabs
     document.querySelectorAll('.login-tabs button').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.login-tabs button').forEach(b => b.classList.remove('active'));
@@ -856,7 +839,6 @@ function bindEvents(view) {
         };
     });
 
-    // Login form
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.onsubmit = async (e) => {
@@ -876,7 +858,6 @@ function bindEvents(view) {
         };
     }
 
-    // Register form
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
         registerForm.onsubmit = async (e) => {
@@ -899,7 +880,6 @@ function bindEvents(view) {
         };
     }
 
-    // Meta form
     const metaForm = document.getElementById('meta-form');
     if (metaForm) {
         metaForm.onsubmit = async (e) => {
@@ -928,7 +908,6 @@ function bindEvents(view) {
         };
     }
 
-    // Upload de foto de perfil
     const fotoInput = document.getElementById('foto-input');
     if (fotoInput) {
         fotoInput.onchange = async () => {
@@ -949,7 +928,6 @@ function bindEvents(view) {
         };
     }
 
-    // Change password form
     const passForm = document.getElementById('change-password-form');
     if (passForm) {
         passForm.onsubmit = async (e) => {
@@ -1089,7 +1067,6 @@ window.updateProfile = async () => {
         state.userFullName = nomeFormatado;
         state.userName = nomeFormatado.split(' ')[0];
         
-        // Atualiza localStorage
         localStorage.setItem(USER_NAME_KEY, state.userName);
         localStorage.setItem(USER_FULL_KEY, state.userFullName);
         
@@ -1268,11 +1245,9 @@ window.addEventListener('appinstalled', () => {
 // INICIALIZAÇÃO
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Aplicar tema
     const theme = localStorage.getItem('nexus_theme') || 'light';
     setTheme(theme);
 
-    // Recupera dados do usuário
     const user = localStorage.getItem(STORAGE_KEY);
     const userName = localStorage.getItem(USER_NAME_KEY);
     const userFull = localStorage.getItem(USER_FULL_KEY);
@@ -1285,7 +1260,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.userFoto = userFoto || null;
     }
 
-    // Eventos do menu
     document.getElementById('menu-toggle')?.addEventListener('click', () => {
         document.getElementById('sidebar').classList.toggle('open');
     });
@@ -1296,7 +1270,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('sidebar-logout')?.addEventListener('click', doLogout);
 
-    // Botão de instalar app (PWA)
     const installBtn = document.getElementById('pwa-install-btn');
     if (installBtn) {
         const jaInstalado = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -1327,7 +1300,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Navegação
     document.querySelectorAll('#sidebar .nav-item[href]').forEach(el => {
         el.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1336,10 +1308,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Router
     window.addEventListener('hashchange', handleHashChange);
 
-    // Inicializar
     if (checkSession()) {
         loadDashboardData();
     } else {
