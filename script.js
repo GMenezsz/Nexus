@@ -460,15 +460,26 @@
     // ========================================
     function updateHeaderAuthUI() {
         const link = document.getElementById('header-login-link');
-        if (!link) return;
+        const userEl = document.getElementById('header-user');
         if (state.user) {
-            link.textContent = t('logout');
-            link.href = '#';
-            link.onclick = (e) => { e.preventDefault(); doLogout(); };
+            if (link) link.style.display = 'none';
+            if (userEl) {
+                userEl.style.display = 'inline-flex';
+                userEl.textContent = state.userFullName || state.userName || state.user;
+                userEl.style.cursor = 'pointer';
+                userEl.onclick = () => window.navigate('configuracoes');
+            }
         } else {
-            link.textContent = t('login');
-            link.href = '#/login';
-            link.onclick = null;
+            if (link) {
+                link.style.display = '';
+                link.textContent = t('login');
+                link.href = '#/login';
+                link.onclick = null;
+            }
+            if (userEl) {
+                userEl.style.display = 'none';
+                userEl.onclick = null;
+            }
         }
     }
 
