@@ -550,6 +550,7 @@ function renderDashboard() {
     const minAltura = 15;
     if (alturaReceitas > 0 && alturaReceitas < minAltura) alturaReceitas = minAltura;
     if (alturaDespesas > 0 && alturaDespesas < minAltura) alturaDespesas = minAltura;
+
     return `
         <div class="view">
             <div class="dashboard-header">
