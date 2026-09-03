@@ -650,3 +650,46 @@ tr:hover td { background: var(--bg-input); }
     .icon-btn { font-size: 1.05rem; padding: 4px 6px; }
     .btn-install span:first-child { font-size: 1rem; }
 }
+
+/* Correção para as barras do Balanço Mensal */
+.balanco-barras {
+    display: flex;
+    align-items: flex-end;
+    gap: 30px;
+    height: 140px;
+    width: 100%;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.balanco-barra {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.balanco-barra-inner {
+    width: 50px;
+    border-radius: 6px 6px 0 0;
+    min-height: 12px;
+    transition: height 0.5s ease;
+}
+
+.balanco-barra-inner.verde {
+    background: #4caf84;
+    box-shadow: 0 2px 8px rgba(76, 175, 132, 0.3);
+}
+
+.balanco-barra-inner.vermelha {
+    background: #dc3545;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.balanco-barra-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
