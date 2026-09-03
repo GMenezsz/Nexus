@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Font Inter -->
+    <!-- Google Fonts: Inter -->
     <link href="https://googleapis.com" rel="stylesheet">
-    <!-- Chart.js -->
+    <!-- Chart.js para Renderização dos Gráficos -->
     <script src="https://jsdelivr.net"></script>
     
-    <!-- PWA Meta Tags fundamentais para modo tela cheia -->
+    <!-- Configurações PWA Obrigatórias para Tela Cheia -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,6 +18,7 @@
 </head>
 <body>
 
+    <!-- Cabeçalho Principal: Escondido no Login/Cadastro via JS -->
     <header id="main-header" style="display: none;">
         <div class="header-left">
             <button id="menu-toggle" class="icon-btn">☰</button>
@@ -32,19 +33,43 @@
     </header>
 
     <div class="app-container">
+        <!-- Barra Lateral Dinâmica: Oculta no Login/Cadastro via JS -->
         <aside id="sidebar" class="sidebar" style="display: none;">
             <ul class="nav-list">
-                <li><button class="nav-item active" href="#/dashboard"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></button></li>
-                <li><button class="nav-item" href="#/transacoes"><span class="nav-icon">💳</span><span class="nav-text">Transações</span></button></li>
-                <li><button class="nav-item" href="#/planejamento"><span class="nav-icon">🎯</span><span class="nav-text">Planejamento</span></button></li>
-                <li><button class="nav-item" href="#/relatorios"><span class="nav-icon">📈</span><span class="nav-text">Relatórios</span></button></li>
-                <li><button class="nav-item" href="#/configuracoes"><span class="nav-icon">⚙️</span><span class="nav-text">Configurações</span></button></li>
+                <li>
+                    <button class="nav-item active" href="#/dashboard">
+                        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-item" href="#/transacoes">
+                        <span class="nav-icon">💳</span><span class="nav-text">Transações</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-item" href="#/planejamento">
+                        <span class="nav-icon">🎯</span><span class="nav-text">Planejamento</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-item" href="#/relatorios">
+                        <span class="nav-icon">📈</span><span class="nav-text">Relatórios</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-item" href="#/configuracoes">
+                        <span class="nav-icon">⚙️</span><span class="nav-text">Configurações</span>
+                    </button>
+                </li>
             </ul>
             <div class="sidebar-footer">
-                <button id="sidebar-logout" class="nav-item"><span class="nav-icon">🚪</span><span class="nav-text">Sair</span></button>
+                <button id="sidebar-logout" class="nav-item">
+                    <span class="nav-icon">🚪</span><span class="nav-text">Sair</span>
+                </button>
             </div>
         </aside>
 
+        <!-- Container Injetor de Telas -->
         <main id="main-content">
             <div id="view-container"></div>
         </main>
