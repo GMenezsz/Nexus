@@ -30,7 +30,7 @@ let deferredInstallPrompt = null;
 
 // Paleta de cores para os gráficos por categoria
 const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71'];
-const dashboardCharts = { receitas: null, despesas: null };
+const dashboardCharts = { receitas: null, despesas: null, balanco: null };
 
 // ========================================
 // API CLIENT
@@ -503,14 +503,45 @@ function renderDashboard() {
 
             <div class="card-grid-2">
                 <div class="card">
-                    <h3 class="mb-md">📈 Receitas por Categoria</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>📈 Receitas por Categoria</h3>
+                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                    </div>
                     <div class="chart-wrap"><canvas id="chart-receitas"></canvas></div>
                     <div id="legend-receitas" class="chart-legend"></div>
+                    <div style="text-align:center;margin-top:8px;font-weight:600;color:var(--text-primary);">${formatCurrency(state.resumo?.receitas || 0)} Total</div>
                 </div>
                 <div class="card">
-                    <h3 class="mb-md">📉 Despesas por Categoria</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>📉 Despesas por Categoria</h3>
+                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                    </div>
                     <div class="chart-wrap"><canvas id="chart-despesas"></canvas></div>
                     <div id="legend-despesas" class="chart-legend"></div>
+                    <div style="text-align:center;margin-top:8px;font-weight:600;color:var(--text-primary);">${formatCurrency(state.resumo?.despesas || 0)} Total</div>
+                </div>
+            </div>
+
+            <div class="card-grid" style="grid-template-columns: 1fr;">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>📊 Balanço Mensal</h3>
+                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;">
+                            <span style="font-weight:500;">Receitas</span>
+                            <span style="color:var(--color-success);font-weight:600;">${formatCurrency(state.resumo?.receitas || 0)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;">
+                            <span style="font-weight:500;">Despesas</span>
+                            <span style="color:var(--color-danger);font-weight:600;">${formatCurrency(state.resumo?.despesas || 0)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
+                            <span style="font-weight:600;">Balanço</span>
+                            <span style="color:var(--color-purple);font-weight:700;font-size:1.1rem;">${formatCurrency((state.resumo?.receitas || 0) - (state.resumo?.despesas || 0))}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -519,8 +550,14 @@ function renderDashboard() {
                 ${state.metas && state.metas.length > 0 ? `
                     <div class="row-between">
                         <div><strong>${state.metas[0].titulo}</strong></div>
-                        <div>💰 ${formatCurrency(state.metas[0].salario_liquido)}</div>
-                        <div>🎯 ${state.metas[0].porcentagem_meta}%</div>
+                        <div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Salário Líquido</div>
+                            <strong>${formatCurrency(state.metas[0].salario_liquido)}</strong>
+                        </div>
+                        <div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Porcentagem da Meta (%)</div>
+                            <strong>${state.metas[0].porcentagem_meta}%</strong>
+                        </div>
                         <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
                 ` : `
@@ -542,7 +579,7 @@ function groupByCategoria(tipo) {
     return totals;
 }
 
-function renderDoughnutChart(canvasId, legendId, totals, key) {
+function renderDoughnutChart(canvasId, legendId, totals, key, totalValue) {
     const canvas = document.getElementById(canvasId);
     const legendEl = document.getElementById(legendId);
     if (!canvas) return;
@@ -597,8 +634,11 @@ function renderDoughnutChart(canvasId, legendId, totals, key) {
 }
 
 function renderDashboardCharts() {
-    renderDoughnutChart('chart-receitas', 'legend-receitas', groupByCategoria('receita'), 'receitas');
-    renderDoughnutChart('chart-despesas', 'legend-despesas', groupByCategoria('despesa'), 'despesas');
+    const receitasTotals = groupByCategoria('receita');
+    const despesasTotals = groupByCategoria('despesa');
+    
+    renderDoughnutChart('chart-receitas', 'legend-receitas', receitasTotals, 'receitas', state.resumo?.receitas || 0);
+    renderDoughnutChart('chart-despesas', 'legend-despesas', despesasTotals, 'despesas', state.resumo?.despesas || 0);
 }
 
 // ========================================
@@ -758,12 +798,80 @@ function renderPlanejamento() {
 // RENDER: RELATÓRIOS
 // ========================================
 function renderRelatorios() {
+    const receitas = state.resumo?.receitas || 0;
+    const despesas = state.resumo?.despesas || 0;
+    const balanco = receitas - despesas;
+    
     return `
         <div class="view">
             <h1>📈 Relatórios</h1>
+            
             <div class="card">
-                <h3>📊 Resumo Geral</h3>
-                <p style="color:var(--text-muted);">Em breve: Gráficos e análises detalhadas</p>
+                <h3>📊 Balanço Mensal</h3>
+                <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;">
+                        <span style="font-weight:500;">Receitas</span>
+                        <span style="color:var(--color-success);font-weight:600;font-size:1.1rem;">${formatCurrency(receitas)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;">
+                        <span style="font-weight:500;">Despesas</span>
+                        <span style="color:var(--color-danger);font-weight:600;font-size:1.1rem;">${formatCurrency(despesas)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--bg-input);border-radius:8px;border:2px solid var(--color-purple);">
+                        <span style="font-weight:600;">Balanço</span>
+                        <span style="color:var(--color-purple);font-weight:700;font-size:1.3rem;">${formatCurrency(balanco)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📈 Receitas por Categoria</h3>
+                <div style="margin-top:16px;">
+                    ${Object.entries(groupByCategoria('receita')).length === 0 ? 
+                        `<p class="text-muted text-center">Nenhuma receita cadastrada</p>` :
+                        Object.entries(groupByCategoria('receita')).map(([categoria, valor], index) => {
+                            const total = Object.values(groupByCategoria('receita')).reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+                            return `
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${CHART_COLORS[index % CHART_COLORS.length]};"></span>
+                                        <span>${categoria}</span>
+                                    </div>
+                                    <div>
+                                        <span style="font-weight:500;">${formatCurrency(valor)}</span>
+                                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📉 Despesas por Categoria</h3>
+                <div style="margin-top:16px;">
+                    ${Object.entries(groupByCategoria('despesa')).length === 0 ? 
+                        `<p class="text-muted text-center">Nenhuma despesa cadastrada</p>` :
+                        Object.entries(groupByCategoria('despesa')).map(([categoria, valor], index) => {
+                            const total = Object.values(groupByCategoria('despesa')).reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
+                            return `
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border-color);">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${CHART_COLORS[index % CHART_COLORS.length]};"></span>
+                                        <span>${categoria}</span>
+                                    </div>
+                                    <div>
+                                        <span style="font-weight:500;">${formatCurrency(valor)}</span>
+                                        <span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">(${pct}%)</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')
+                    }
+                </div>
             </div>
         </div>
     `;
@@ -973,7 +1081,6 @@ window.toggleCofrinho = (el) => {
 window.toggleActionMenu = (event, id) => {
     event.stopPropagation();
     
-    // Fecha todos os menus abertos
     document.querySelectorAll('.action-menu').forEach(menu => {
         if (menu.id !== `action-menu-${id}`) {
             menu.style.display = 'none';
@@ -983,16 +1090,13 @@ window.toggleActionMenu = (event, id) => {
     const menu = document.getElementById(`action-menu-${id}`);
     if (menu) {
         const isVisible = menu.style.display === 'block';
-        // Fecha todos antes de abrir
         document.querySelectorAll('.action-menu').forEach(m => m.style.display = 'none');
         if (!isVisible) {
             menu.style.display = 'block';
-            // Posiciona o menu próximo ao botão
             const rect = event.target.getBoundingClientRect();
             menu.style.top = (rect.bottom + 4) + 'px';
             menu.style.left = (rect.left - 60) + 'px';
             
-            // Ajusta para não sair da tela
             const menuRect = menu.getBoundingClientRect();
             if (menuRect.right > window.innerWidth) {
                 menu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
@@ -1004,7 +1108,6 @@ window.toggleActionMenu = (event, id) => {
     }
 };
 
-// Fecha menus ao clicar fora
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.action-menu') && !e.target.closest('.action-dots')) {
         document.querySelectorAll('.action-menu').forEach(menu => {
@@ -1040,7 +1143,6 @@ window.bulkDelete = async () => {
         return;
     }
     
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1074,7 +1176,6 @@ window.bulkDelete = async () => {
 };
 
 window.editTransaction = (id) => {
-    // Fecha o menu de ações
     document.querySelectorAll('.action-menu').forEach(menu => menu.style.display = 'none');
     
     const tx = state.transactions.find(t => String(t.id) === String(id));
@@ -1083,10 +1184,8 @@ window.editTransaction = (id) => {
 };
 
 window.deleteTransaction = async (id) => {
-    // Fecha o menu de ações
     document.querySelectorAll('.action-menu').forEach(menu => menu.style.display = 'none');
     
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1118,7 +1217,6 @@ window.deleteTransaction = async (id) => {
 };
 
 window.deleteMeta = async (titulo) => {
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1150,7 +1248,6 @@ window.deleteMeta = async (titulo) => {
 };
 
 window.removeProfilePhoto = async () => {
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1206,7 +1303,6 @@ window.updateProfile = async () => {
 };
 
 window.resetAccount = async () => {
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1238,7 +1334,6 @@ window.resetAccount = async () => {
 };
 
 window.deleteAccount = async () => {
-    // Modal de confirmação
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1292,7 +1387,6 @@ function statusPreviewHTML(dataStr) {
 window.openTransactionModal = (tx = null) => {
     const isEdicao = !!tx;
     
-    // Define o tipo padrão baseado na página atual
     let tipoInicial = 'receita';
     if (state.currentView === 'receitas') {
         tipoInicial = 'receita';
@@ -1302,7 +1396,6 @@ window.openTransactionModal = (tx = null) => {
         tipoInicial = tx.tipo;
     }
     
-    // Se estiver em página específica, bloqueia a mudança de tipo
     const isRestricted = state.currentView === 'receitas' || state.currentView === 'despesas';
     
     const modal = document.createElement('div');
@@ -1353,7 +1446,6 @@ window.openTransactionModal = (tx = null) => {
     const valorInput = document.getElementById('tx-valor');
     const statusPreview = document.getElementById('tx-status-preview');
 
-    // Atualiza o seletor de categoria quando o tipo muda (apenas se não estiver restrito)
     if (!isRestricted) {
         tipoSelect.addEventListener('change', function() {
             const tipo = this.value;
@@ -1370,7 +1462,6 @@ window.openTransactionModal = (tx = null) => {
     dataInput.value = tx ? tx.data : new Date().toISOString().split('T')[0];
     if (tx) {
         valorInput.value = 'R$ ' + tx.valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        // Seleciona a categoria correta
         const categorias = state.categories[tipoInicial] || [];
         if (categorias.length > 0 && tx.categoria) {
             categoriaSelect.value = tx.categoria;
