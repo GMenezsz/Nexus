@@ -180,6 +180,13 @@ function unmaskCurrency(str) {
     return parseFloat(cleaned) || 0;
 }
 
+function formatName(name) {
+    if (!name) return '';
+    return name.toLowerCase().split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+}
+
 function showToast(message, type = 'info') {
     const existing = document.querySelector('.toast-container');
     let container = existing;
@@ -258,40 +265,22 @@ function checkSession() {
     state.userName = userName || 'Usuário';
     state.userFullName = userFull || userName || 'Usuário';
     
-    // Atualiza o header
-    updateHeaderUser();
-    
     return true;
 }
 
-function updateHeaderUser() {
-    const userEl = document.getElementById('header-user');
-    const userNameEl = document.getElementById('header-user-name');
-    const loginLink = document.getElementById('header-login-link');
-    
-    if (state.user && state.userName) {
-        loginLink.style.display = 'none';
-        userEl.style.display = 'flex';
-        userEl.style.alignItems = 'center';
-        userEl.style.gap = '8px';
-        userNameEl.textContent = `👋 ${state.userName}`;
-    } else {
-        loginLink.style.display = 'inline';
-        userEl.style.display = 'none';
-    }
-}
-
 function doLogin(user, nomeCompleto) {
+    // Formata o nome com .title()
+    const nomeFormatado = formatName(nomeCompleto);
+    
     state.user = user;
-    state.userFullName = nomeCompleto;
-    state.userName = nomeCompleto.split(' ')[0];
+    state.userFullName = nomeFormatado;
+    state.userName = nomeFormatado.split(' ')[0];
     
     // Salva no localStorage
     localStorage.setItem(STORAGE_KEY, user);
     localStorage.setItem(USER_NAME_KEY, state.userName);
     localStorage.setItem(USER_FULL_KEY, state.userFullName);
     
-    updateHeaderUser();
     navigate('dashboard');
     loadDashboardData();
 }
@@ -305,7 +294,6 @@ function doLogout() {
     state.userName = null;
     state.userFullName = null;
     
-    updateHeaderUser();
     navigate('login');
 }
 
@@ -443,8 +431,10 @@ function renderDashboard() {
                         <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
                 ` : `
-                    <div style="margin-bottom:12px;">
-                        <p style="color:var(--text-muted);margin-bottom:12px;">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                    <div style="margin-top: 16px; margin-bottom: 16px;">
+                        <p style="color:var(--text-muted); margin-bottom: 20px; font-size: 1rem; line-height: 1.6;">
+                            Opa! Você ainda não possui um planejamento definido para este mês.
+                        </p>
                         <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
                     </div>
                 `}
@@ -581,8 +571,10 @@ function renderPlanejamento() {
                 </div>
             ` : `
                 <div class="card">
-                    <div style="margin-bottom:12px;">
-                        <p style="color:var(--text-muted);margin-bottom:12px;">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                    <div style="margin-top: 24px; margin-bottom: 24px; padding: 8px 0;">
+                        <p style="color:var(--text-muted); margin-bottom: 24px; font-size: 1.05rem; line-height: 1.8;">
+                            Opa! Você ainda não possui um planejamento definido para este mês.
+                        </p>
                         <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
                     </div>
                 </div>
@@ -898,15 +890,17 @@ window.updateProfile = async () => {
     if (nome === null || sobrenome === null) return;
     try {
         await api.atualizarNomeSobrenome(state.user, nome, sobrenome);
-        state.userFullName = `${nome} ${sobrenome}`.trim();
-        state.userName = nome;
+        const nomeCompleto = `${nome} ${sobrenome}`.trim();
+        const nomeFormatado = formatName(nomeCompleto);
+        
+        state.userFullName = nomeFormatado;
+        state.userName = nomeFormatado.split(' ')[0];
         
         // Atualiza localStorage
         localStorage.setItem(USER_NAME_KEY, state.userName);
         localStorage.setItem(USER_FULL_KEY, state.userFullName);
         
         showToast('Perfil atualizado!', 'success');
-        updateHeaderUser();
         renderView('configuracoes');
     } catch (err) {
         showToast('Erro: ' + (err.message || ''), 'error');
@@ -1031,7 +1025,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.user = user;
         state.userName = userName || 'Usuário';
         state.userFullName = userFull || userName || 'Usuário';
-        updateHeaderUser();
     }
 
     // Eventos do menu
