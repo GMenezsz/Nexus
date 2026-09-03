@@ -643,7 +643,7 @@ function renderTransacoes() {
             </div>
 
             <div class="mb-md">
-                <button id="bulk-delete-btn" class="btn-danger-strong" onclick="bulkDelete()">🗑️ Deletar Selecionados</button>
+                <button id="bulk-delete-btn" class="btn-danger-strong" onclick="bulkDelete()">Deletar Selecionados</button>
             </div>
 
             <div class="table-container">
@@ -677,9 +677,9 @@ function renderTransacoes() {
                                     <td data-label="Status"><span class="badge ${statusClass}">${statusText}</span></td>
                                     <td class="td-actions" style="text-align:center;position:relative;">
                                         <button class="action-dots" onclick="toggleActionMenu(event, '${tx.id}')">⋮</button>
-                                        <div id="action-menu-${tx.id}" class="action-menu" style="display:none;position:absolute;right:0;top:100%;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;box-shadow:var(--shadow-md);z-index:100;min-width:120px;padding:4px 0;">
-                                            <button class="action-menu-item" onclick="editTransaction('${tx.id}')" style="display:block;width:100%;padding:8px 16px;border:none;background:none;color:var(--text-primary);cursor:pointer;text-align:left;font-size:0.9rem;">✏️ Editar</button>
-                                            <button class="action-menu-item" onclick="deleteTransaction('${tx.id}')" style="display:block;width:100%;padding:8px 16px;border:none;background:none;color:var(--color-danger);cursor:pointer;text-align:left;font-size:0.9rem;">🗑️ Excluir</button>
+                                        <div id="action-menu-${tx.id}" class="action-menu" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;box-shadow:var(--shadow-lg);z-index:9999;min-width:140px;padding:8px 0;overflow:hidden;">
+                                            <button class="action-menu-item" onclick="editTransaction('${tx.id}')" style="display:block;width:100%;padding:10px 20px;border:none;background:none;color:var(--text-primary);cursor:pointer;text-align:left;font-size:0.9rem;transition:background 0.2s;">✏️ Editar</button>
+                                            <button class="action-menu-item" onclick="deleteTransaction('${tx.id}')" style="display:block;width:100%;padding:10px 20px;border:none;background:none;color:var(--color-danger);cursor:pointer;text-align:left;font-size:0.9rem;transition:background 0.2s;border-top:1px solid var(--border-color);">🗑️ Excluir</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -721,7 +721,7 @@ function renderPlanejamento() {
                         </div>
                     </div>
                     <button type="submit" class="btn-primary">${meta ? 'Atualizar' : 'Criar'}</button>
-                    ${meta ? `<button type="button" class="btn-danger" onclick="deleteMeta('${meta.titulo}')" style="margin-left:8px;">🗑️ Deletar</button>` : ''}
+                    ${meta ? `<button type="button" class="btn-danger" onclick="deleteMeta('${meta.titulo}')" style="margin-left:8px;">Deletar</button>` : ''}
                 </form>
             </div>
 
@@ -789,7 +789,7 @@ function renderConfiguracoes() {
                 <div class="avatar-upload-actions">
                     <label for="foto-input" class="btn-secondary">📷 Alterar Foto</label>
                     <input type="file" id="foto-input" accept="image/*" class="visually-hidden-input" />
-                    ${state.userFoto ? `<button class="btn-secondary" onclick="removeProfilePhoto()">🗑️ Remover Foto</button>` : ''}
+                    ${state.userFoto ? `<button class="btn-secondary" onclick="removeProfilePhoto()">Remover Foto</button>` : ''}
                     <button class="btn-secondary" onclick="updateProfile()">✏️ Editar Nome</button>
                 </div>
             </div>
@@ -821,7 +821,7 @@ function renderConfiguracoes() {
                 <h3 class="mb-md" style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
                 <div class="row-wrap-sm">
                     <button class="btn-danger" onclick="resetAccount()">🔄 Resetar Conta</button>
-                    <button class="btn-danger" onclick="deleteAccount()">🗑️ Excluir Conta</button>
+                    <button class="btn-danger" onclick="deleteAccount()">Excluir Conta</button>
                     <button class="btn-secondary" onclick="doLogout()">🚪 Sair</button>
                 </div>
             </div>
@@ -972,23 +972,45 @@ window.toggleCofrinho = (el) => {
 
 window.toggleActionMenu = (event, id) => {
     event.stopPropagation();
+    
     // Fecha todos os menus abertos
     document.querySelectorAll('.action-menu').forEach(menu => {
         if (menu.id !== `action-menu-${id}`) {
             menu.style.display = 'none';
         }
     });
+    
     const menu = document.getElementById(`action-menu-${id}`);
     if (menu) {
-        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        const isVisible = menu.style.display === 'block';
+        // Fecha todos antes de abrir
+        document.querySelectorAll('.action-menu').forEach(m => m.style.display = 'none');
+        if (!isVisible) {
+            menu.style.display = 'block';
+            // Posiciona o menu próximo ao botão
+            const rect = event.target.getBoundingClientRect();
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.left = (rect.left - 60) + 'px';
+            
+            // Ajusta para não sair da tela
+            const menuRect = menu.getBoundingClientRect();
+            if (menuRect.right > window.innerWidth) {
+                menu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
+            }
+            if (menuRect.bottom > window.innerHeight) {
+                menu.style.top = (rect.top - menuRect.height - 4) + 'px';
+            }
+        }
     }
 };
 
 // Fecha menus ao clicar fora
-document.addEventListener('click', function() {
-    document.querySelectorAll('.action-menu').forEach(menu => {
-        menu.style.display = 'none';
-    });
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.action-menu') && !e.target.closest('.action-dots')) {
+        document.querySelectorAll('.action-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+    }
 });
 
 window.toggleAllCheckboxes = () => {
@@ -1004,7 +1026,7 @@ window.updateBulkDeleteButton = () => {
     if (btn) {
         if (checked > 0) {
             btn.classList.add('show');
-            btn.textContent = `🗑️ Deletar ${checked} Selecionado${checked > 1 ? 's' : ''}`;
+            btn.textContent = `Deletar ${checked} Selecionado${checked > 1 ? 's' : ''}`;
         } else {
             btn.classList.remove('show');
         }
@@ -1096,27 +1118,69 @@ window.deleteTransaction = async (id) => {
 };
 
 window.deleteMeta = async (titulo) => {
-    if (!confirm(`Deletar meta "${titulo}"?`)) return;
-    try {
-        await api.deletarMeta(state.user, titulo);
-        showToast('Meta deletada!', 'success');
-        await loadDashboardData();
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar exclusão</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja excluir a meta <strong>"${titulo}"</strong>? Esta ação não pode ser desfeita.</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-meta-delete">Excluir</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-meta-delete').addEventListener('click', async () => {
+        modal.remove();
+        try {
+            await api.deletarMeta(state.user, titulo);
+            showToast('Meta deletada!', 'success');
+            await loadDashboardData();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    });
 };
 
 window.removeProfilePhoto = async () => {
-    if (!confirm('Remover sua foto de perfil?')) return;
-    try {
-        await api.atualizarFoto(state.user, '');
-        state.userFoto = null;
-        localStorage.removeItem(USER_FOTO_KEY);
-        showToast('Foto removida!', 'success');
-        renderView('configuracoes');
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar remoção</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja remover sua foto de perfil?</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-photo-remove">Remover</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-photo-remove').addEventListener('click', async () => {
+        modal.remove();
+        try {
+            await api.atualizarFoto(state.user, '');
+            state.userFoto = null;
+            localStorage.removeItem(USER_FOTO_KEY);
+            showToast('Foto removida!', 'success');
+            renderView('configuracoes');
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    });
 };
 
 window.updateProfile = async () => {
@@ -1142,25 +1206,67 @@ window.updateProfile = async () => {
 };
 
 window.resetAccount = async () => {
-    if (!confirm('Resetar sua conta? Todos os dados serão apagados.')) return;
-    try {
-        await api.reiniciarConta(state.user);
-        showToast('Conta resetada!', 'success');
-        doLogout();
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar reset</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja resetar sua conta? Todos os dados serão apagados.</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-reset">Resetar</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-reset').addEventListener('click', async () => {
+        modal.remove();
+        try {
+            await api.reiniciarConta(state.user);
+            showToast('Conta resetada!', 'success');
+            doLogout();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    });
 };
 
 window.deleteAccount = async () => {
-    if (!confirm('EXCLUIR sua conta permanentemente? Esta ação é irreversível!')) return;
-    try {
-        await api.deletarUsuario(state.user);
-        showToast('Conta excluída!', 'success');
-        doLogout();
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+    // Modal de confirmação
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirmar exclusão</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary);margin-bottom:20px;">Tem certeza que deseja <strong>EXCLUIR</strong> sua conta permanentemente? Esta ação é irreversível!</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                <button class="btn-danger" id="confirm-account-delete">Excluir Conta</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    document.getElementById('confirm-account-delete').addEventListener('click', async () => {
+        modal.remove();
+        try {
+            await api.deletarUsuario(state.user);
+            showToast('Conta excluída!', 'success');
+            doLogout();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    });
 };
 
 function computeStatusFromDate(dataStr) {
