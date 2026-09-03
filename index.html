@@ -58,4 +58,296 @@
                     <div class="auth-card">
                         <div class="auth-tabs">
                             <button class="tab-btn active" data-tab="login" data-i18n="auth_tab_login">Entrar</button>
-                            <button class="tab-btn"
+                            <button class="tab-btn" data-tab="register" data-i18n="auth_tab_register">Cadastrar Nova Conta</button>
+                        </div>
+                        
+                        <form id="form-login" class="auth-form">
+                            <div class="input-group">
+                                <label data-i18n="label_usuario">Usuário</label>
+                                <input type="text" name="usuario" required autocomplete="username">
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_senha">Senha</label>
+                                <input type="password" name="senha" required autocomplete="current-password">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_entrar">Entrar</button>
+                        </form>
+
+                        <form id="form-register" class="auth-form" hidden>
+                            <div class="input-group">
+                                <label data-i18n="label_nome">Nome</label>
+                                <input type="text" name="nome" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_sobrenome">Sobrenome</label>
+                                <input type="text" name="sobrenome" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_usuario">Usuário</label>
+                                <input type="text" name="usuario" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_senha">Senha</label>
+                                <input type="password" name="senha" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_cadastrar">Criar Conta</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-dashboard" class="view" hidden>
+                <div class="welcome-banner">
+                    <h2 id="greeting-text">Olá, Nome</h2>
+                </div>
+                <div class="summary-cards">
+                    <div class="card summary-card">
+                        <span class="card-icon blue">💰</span>
+                        <div>
+                            <span class="card-title" data-i18n="card_saldo">Saldo Atual</span>
+                            <h3 id="dash-saldo">R$ 0,00</h3>
+                        </div>
+                    </div>
+                    <div class="card summary-card">
+                        <span class="card-icon green">📈</span>
+                        <div>
+                            <span class="card-title" data-i18n="card_receitas">Receitas</span>
+                            <h3 id="dash-receitas" class="text-green">R$ 0,00</h3>
+                        </div>
+                    </div>
+                    <div class="card summary-card">
+                        <span class="card-icon red">📉</span>
+                        <div>
+                            <span class="card-title" data-i18n="card_despesas">Despesas</span>
+                            <h3 id="dash-despesas" class="text-red">R$ 0,00</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="card chart-card">
+                        <h4 data-i18n="chart_rec_cat">Receitas por Categoria</h4>
+                        <div class="chart-preview" id="dash-chart-receitas"></div>
+                        <button class="btn btn-text navigate-link" data-target="relatorios" data-i18n="btn_ver_mais">Ver mais →</button>
+                    </div>
+                    <div class="card chart-card">
+                        <h4 data-i18n="chart_esp_cat">Despesas por Categoria</h4>
+                        <div class="chart-preview" id="dash-chart-despesas"></div>
+                        <button class="btn btn-text navigate-link" data-target="relatorios" data-i18n="btn_ver_mais">Ver mais →</button>
+                    </div>
+                </div>
+                <div class="dashboard-row">
+                    <div class="card balance-card">
+                        <h4 data-i18n="card_balanco">Balanço Mensal</h4>
+                        <div id="dash-balanco-bars" class="balance-bars-container"></div>
+                    </div>
+                    <div class="card plan-preview-card">
+                        <h4 data-i18n="card_planejamento">Planejamento</h4>
+                        <p id="dash-plan-msg" class="text-muted">Opa! Você ainda não possui um planejamento definido para este mês.</p>
+                        <button class="btn btn-outline navigate-link" data-target="planejamento" data-i18n="btn_definir_plano">Definir meu planejamento</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-transacoes" class="view" hidden>
+                <div class="section-header">
+                    <h2 data-i18n="menu_transacoes">Transações</h2>
+                    <button id="btn-open-trans-modal" class="btn btn-primary" data-i18n="btn_nova_transacao">+ Nova Transação</button>
+                </div>
+                <div class="summary-cards mini">
+                    <div class="card summary-card"><span>💰</span><div><small data-i18n="card_saldo">Saldo</small><h4 id="trans-saldo">R$ 0,00</h4></div></div>
+                    <div class="card summary-card"><span>📈</span><div><small data-i18n="card_receitas">Receitas</small><h4 id="trans-receitas" class="text-green">R$ 0,00</h4></div></div>
+                    <div class="card summary-card"><span>📉</span><div><small data-i18n="card_despesas">Despesas</small><h4 id="trans-despesas" class="text-red">R$ 0,00</h4></div></div>
+                </div>
+                <div class="card table-card">
+                    <div class="table-actions-bar">
+                        <button id="btn-delete-selected" class="btn btn-danger-outline" disabled data-i18n="btn_excluir_selecionados">Excluir Selecionados</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="table-transacoes">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="select-all-trans"></th>
+                                    <th data-i18n="th_data">Data</th>
+                                    <th data-i18n="th_tipo">Tipo</th>
+                                    <th data-i18n="th_categoria">Categoria</th>
+                                    <th data-i18n="th_valor">Valor</th>
+                                    <th data-i18n="th_status">Situação</th>
+                                    <th data-i18n="th_acoes">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="trans-pagination"></div>
+                </div>
+            </section>
+
+            <section id="view-planejamento" class="view" hidden>
+                <div class="section-header">
+                    <h2 data-i18n="menu_planejamento">Planejamento & Cofrinho</h2>
+                </div>
+                <div class="plan-grid">
+                    <div class="card">
+                        <h3 data-i18n="title_config_meta">Configurar Meta Mensal</h3>
+                        <form id="form-meta">
+                            <div class="input-group">
+                                <label data-i18n="label_titulo_meta">Título da Meta</label>
+                                <input type="text" name="titulo" required placeholder="Ex: Reserva de Emergência">
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_salario_liquido">Salário Líquido (R$)</label>
+                                <input type="text" name="salario_liquido" class="money-mask" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_porcentagem_meta">Porcentagem da Meta (%)</label>
+                                <input type="number" name="porcentagem_meta" min="1" max="100" value="20" required>
+                            </div>
+                            <div class="btn-group">
+                                <button type="submit" class="btn btn-primary" data-i18n="btn_salvar_meta">Salvar Meta</button>
+                                <button type="button" id="btn-delete-meta" class="btn btn-danger" hidden data-i18n="btn_excluir_meta">Excluir Meta</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card piggy-bank-panel">
+                        <h3 data-i18n="title_desafio_cofrinho">Desafio do Cofrinho</h3>
+                        <div class="piggy-stats">
+                            <div><span data-i18n="label_guardado">Guardado:</span> <strong id="piggy-saved">R$ 0,00</strong></div>
+                            <div><span data-i18n="label_meta_total">Meta Total:</span> <strong id="piggy-total">R$ 0,00</strong></div>
+                        </div>
+                        <div id="piggy-grid" class="piggy-grid-container">
+                            <p class="text-muted" data-i18n="msg_sem_meta">Cadastre uma meta para ativar os quadradinhos do cofrinho.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-relatorios" class="view" hidden>
+                <div class="section-header">
+                    <h2 data-i18n="menu_relatorios">Relatórios Analíticos</h2>
+                </div>
+                <div class="reports-grid">
+                    <div class="card">
+                        <h3 data-i18n="chart_rec_cat">Receitas por Categoria</h3>
+                        <div id="report-chart-rec" class="full-chart-container"></div>
+                    </div>
+                    <div class="card">
+                        <h3 data-i18n="chart_esp_cat">Despesas por Categoria</h3>
+                        <div id="report-chart-esp" class="full-chart-container"></div>
+                    </div>
+                    <div class="card full-width">
+                        <h3 data-i18n="title_historico_balanco">Balanço Histórico (Últimos Meses)</h3>
+                        <div id="report-history-chart" class="history-chart-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-configuracoes" class="view" hidden>
+                <div class="section-header">
+                    <h2 data-i18n="menu_configuracoes">Configurações & Perfil</h2>
+                </div>
+                <div class="config-grid">
+                    <div class="card">
+                        <h3 data-i18n="title_perfil">Meu Perfil</h3>
+                        <div class="profile-edit-box">
+                            <img id="config-user-avatar" src="icons/default-avatar.png" alt="Avatar">
+                            <input type="file" id="upload-avatar-input" accept="image/*" hidden>
+                            <button type="button" class="btn btn-outline" id="btn-change-avatar" data-i18n="btn_alterar_foto">Alterar Foto</button>
+                        </div>
+                        <form id="form-update-profile">
+                            <div class="input-group">
+                                <label data-i18n="label_nome">Nome</label>
+                                <input type="text" name="nome" id="config-input-nome" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_sobrenome">Sobrenome</label>
+                                <input type="text" name="sobrenome" id="config-input-sobrenome" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" data-i18n="btn_atualizar_perfil">Atualizar Perfil</button>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <h3 data-i18n="title_preferencias">Preferências</h3>
+                        <div class="input-group">
+                            <label data-i18n="label_idioma">Idioma</label>
+                            <select id="select-language">
+                                <option value="pt-BR">Português (Brasil)</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label data-i18n="label_tema">Tema</label>
+                            <select id="select-theme">
+                                <option value="light" data-i18n="theme_light">Claro</option>
+                                <option value="dark" data-i18n="theme_dark">Escuro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 data-i18n="title_seguranca">Segurança & Senha</h3>
+                        <form id="form-update-password">
+                            <div class="input-group">
+                                <label data-i18n="label_senha_antiga">Senha Antiga</label>
+                                <input type="password" name="senha_antiga" required>
+                            </div>
+                            <div class="input-group">
+                                <label data-i18n="label_nova_senha">Nova Senha</label>
+                                <input type="password" name="nova_senha" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" data-i18n="btn_alterar_senha">Alterar Senha</button>
+                        </form>
+                    </div>
+                    <div class="card danger-zone">
+                        <h3 data-i18n="title_zona_perigo">Zona de Perigo</h3>
+                        <div class="danger-actions">
+                            <button id="btn-restart-account" class="btn btn-danger-outline" data-i18n="btn_reiniciar_conta">Reiniciar Conta</button>
+                            <button id="btn-delete-account" class="btn btn-danger" data-i18n="btn_excluir_conta">Excluir Conta Permanentemente</button>
+                            <button id="btn-logout" class="btn btn-secondary" data-i18n="btn_sair">Sair (Logout)</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modal-transacao" class="modal" hidden>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-trans-title" data-i18n="title_nova_transacao">Nova Transação</h3>
+                <button class="modal-close" id="btn-close-trans-modal">&times;</button>
+            </div>
+            <form id="form-transacao">
+                <input type="hidden" name="transacao_id" id="trans-id-hidden">
+                <div class="input-group">
+                    <label data-i18n="label_tipo">Tipo</label>
+                    <select name="tipo" id="trans-tipo-select" required>
+                        <option value="receita" data-i18n="opt_receita">Receita</option>
+                        <option value="despesa" data-i18n="opt_despesa">Despesa</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label data-i18n="label_categoria">Categoria</label>
+                    <select name="categoria" id="trans-cat-select" required></select>
+                </div>
+                <div class="input-group">
+                    <label data-i18n="label_valor">Valor (R$)</label>
+                    <input type="text" name="valor" id="trans-valor-input" class="money-mask" required>
+                </div>
+                <div class="input-group">
+                    <label data-i18n="label_data">Data (DD/MM/AAAA)</label>
+                    <input type="text" name="data" id="trans-data-input" placeholder="DD/MM/AAAA" maxlength="10" required>
+                </div>
+                <div class="input-group">
+                    <label data-i18n="label_status">Situação</label>
+                    <select name="status" id="trans-status-select" required>
+                        <option value="efetuada" data-i18n="opt_efetuada">Efetuada</option>
+                        <option value="pendente" data-i18n="opt_pendente">Pendente</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_salvar">Salvar Transação</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
