@@ -541,11 +541,15 @@ function renderDashboard() {
         }).join('');
     }
 
-    // Calcula alturas das barras - baseado no maior valor
+    // Calcula alturas das barras - baseado no maior valor com altura mínima
     const maxValor = Math.max(state.resumo?.receitas || 0, state.resumo?.despesas || 0, 1);
-    const alturaReceitas = ((state.resumo?.receitas || 0) / maxValor) * 100;
-    const alturaDespesas = ((state.resumo?.despesas || 0) / maxValor) * 100;
-
+    let alturaReceitas = ((state.resumo?.receitas || 0) / maxValor) * 100;
+    let alturaDespesas = ((state.resumo?.despesas || 0) / maxValor) * 100;
+    
+    // Garante altura mínima de 15% para a barra menor
+    const minAltura = 15;
+    if (alturaReceitas > 0 && alturaReceitas < minAltura) alturaReceitas = minAltura;
+    if (alturaDespesas > 0 && alturaDespesas < minAltura) alturaDespesas = minAltura;
     return `
         <div class="view">
             <div class="dashboard-header">
