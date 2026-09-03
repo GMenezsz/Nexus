@@ -2,6 +2,8 @@
 // NEXUS - SISTEMA COMPLETO
 // ========================================
 
+console.log('🔵 SCRIPT CARREGADO - v5');
+
 const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
 const USER_NAME_KEY = 'nexus_user_name';
@@ -513,6 +515,9 @@ function renderDashboard() {
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
 
+    console.log('📊 Renderizando Dashboard - v5');
+    console.log('Receitas:', receitas, 'Despesas:', despesas);
+
     // Função para renderizar a legenda estilizada
     function renderStyledLegend(tipo) {
         const totals = groupByCategoria(tipo);
@@ -542,14 +547,20 @@ function renderDashboard() {
     }
 
     // Calcula alturas das barras - baseado no maior valor com altura mínima
-    const maxValor = Math.max(state.resumo?.receitas || 0, state.resumo?.despesas || 0, 1);
-    let alturaReceitas = ((state.resumo?.receitas || 0) / maxValor) * 100;
-    let alturaDespesas = ((state.resumo?.despesas || 0) / maxValor) * 100;
+    const maxValor = Math.max(receitas, despesas, 1);
+    let alturaReceitas = (receitas / maxValor) * 100;
+    let alturaDespesas = (despesas / maxValor) * 100;
+    
+    console.log('Altura Receitas:', alturaReceitas, '%');
+    console.log('Altura Despesas:', alturaDespesas, '%');
     
     // Garante altura mínima de 15% para a barra menor
     const minAltura = 15;
     if (alturaReceitas > 0 && alturaReceitas < minAltura) alturaReceitas = minAltura;
     if (alturaDespesas > 0 && alturaDespesas < minAltura) alturaDespesas = minAltura;
+
+    console.log('Altura Receitas (após min):', alturaReceitas, '%');
+    console.log('Altura Despesas (após min):', alturaDespesas, '%');
 
     return `
         <div class="view">
@@ -590,7 +601,7 @@ function renderDashboard() {
                         ${renderStyledLegend('receita')}
                     </div>
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
-                        ${formatCurrency(state.resumo?.receitas || 0)} Total
+                        ${formatCurrency(receitas)} Total
                     </div>
                 </div>
                 <div class="card">
@@ -603,7 +614,7 @@ function renderDashboard() {
                         ${renderStyledLegend('despesa')}
                     </div>
                     <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border-color);font-weight:600;color:var(--text-primary);">
-                        ${formatCurrency(state.resumo?.despesas || 0)} Total
+                        ${formatCurrency(despesas)} Total
                     </div>
                 </div>
             </div>
@@ -630,15 +641,15 @@ function renderDashboard() {
                         <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
                                 <span style="font-weight:500;font-size:0.9rem;">Receitas</span>
-                                <span style="color:var(--color-success);font-weight:600;font-size:0.95rem;">${formatCurrency(state.resumo?.receitas || 0)}</span>
+                                <span style="color:var(--color-success);font-weight:600;font-size:0.95rem;">${formatCurrency(receitas)}</span>
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
                                 <span style="font-weight:500;font-size:0.9rem;">Despesas</span>
-                                <span style="color:var(--color-danger);font-weight:600;font-size:0.95rem;">${formatCurrency(state.resumo?.despesas || 0)}</span>
+                                <span style="color:var(--color-danger);font-weight:600;font-size:0.95rem;">${formatCurrency(despesas)}</span>
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;border-top:2px solid var(--color-purple);">
                                 <span style="font-weight:700;font-size:1rem;">Balanço</span>
-                                <span style="color:var(--color-purple);font-weight:700;font-size:1.2rem;">${formatCurrency((state.resumo?.receitas || 0) - (state.resumo?.despesas || 0))}</span>
+                                <span style="color:var(--color-purple);font-weight:700;font-size:1.2rem;">${formatCurrency(receitas - despesas)}</span>
                             </div>
                         </div>
                     </div>
