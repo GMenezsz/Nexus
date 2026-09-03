@@ -2,13 +2,12 @@ const API_BASE = "https://nexus-api-mz3t.onrender.com";
 let currentUser = localStorage.getItem("nexus_user") || null;
 let currentLang = localStorage.getItem("nexus_lang") || "pt-BR";
 let currentTheme = localStorage.getItem("nexus_theme") || "light";
-let globalCategories = { receita: [], despesa: [] };
+let globalCategories = { receita: ["Salário", "Pix", "Bonificação", "Freelance", "Investimentos", "Outros"], despesa: ["Alimentação", "Transporte", "Moradia", "Lazer", "Contas", "Saúde", "Outros"] };
 let allTransactions = [];
 let currentPage = 1;
 const itemsPerPage = 10;
 let deferredPrompt = null;
 
-// Dicionário de Internacionalização (PT-BR / EN)
 const i18n = {
     "pt-BR": {
         nav_home: "Início", nav_login: "Fazer Login", nav_download: "Download App",
@@ -71,8 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     initMoneyMasks();
     initPWA();
     setupEventListeners();
+    await fetchCategories(); // Garante categorias carregadas logo no início
 
-    // Verificação de Sessão Permanente & Integridade
     if (currentUser) {
         try {
             const res = await fetch(`${API_BASE}/transacoes/resumo?usuario=${encodeURIComponent(currentUser)}`);
@@ -88,7 +87,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
-/* --- Internacionalização e Temas --- */
 function initThemeAndLang() {
     document.documentElement.setAttribute("data-theme", currentTheme);
     document.getElementById("select-theme").value = currentTheme;
@@ -105,7 +103,6 @@ function applyTranslations() {
     });
 }
 
-/* --- Máscara de Dinheiro --- */
 function initMoneyMasks() {
     document.querySelectorAll(".money-mask").forEach(input => {
         input.addEventListener("input", (e) => {
@@ -125,7 +122,6 @@ function formatMoney(num) {
     return (num || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-/* --- Conversão de Data BR <-> ISO --- */
 function dateBrToIso(dateBr) {
     const parts = dateBr.split("/");
     if (parts.length !== 3) return dateBr;
@@ -139,9 +135,7 @@ function dateIsoToBr(dateIso) {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-/* --- Event Listeners Globais --- */
 function setupEventListeners() {
-    // Abas de Auth
     document.querySelectorAll(".auth-tabs .tab-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             document.querySelectorAll(".auth-tabs .tab-btn").forEach(b => b.classList.remove("active"));
@@ -157,7 +151,6 @@ function setupEventListeners() {
         });
     });
 
-    // Login Submit
     document.getElementById("form-login").addEventListener("submit", async (e) => {
         e.preventDefault();
         const formData = Object.fromEntries(new FormData(e.target));
@@ -177,7 +170,6 @@ function setupEventListeners() {
         }
     });
 
-    // Cadastro Submit
     document.getElementById("form-register").addEventListener("submit", async (e) => {
         e.preventDefault();
         const formData = Object.fromEntries(new FormData(e.target));
@@ -197,7 +189,6 @@ function setupEventListeners() {
         }
     });
 
-    // Navegação Sidebar e Links
     document.querySelectorAll(".sidebar-item, .navigate-link").forEach(item => {
         item.addEventListener("click", (e) => {
             e.preventDefault();
@@ -209,12 +200,10 @@ function setupEventListeners() {
         });
     });
 
-    // Menu Mobile Hambúrguer
     document.getElementById("menu-toggle").addEventListener("click", () => {
         document.getElementById("app-sidebar").classList.toggle("open");
     });
 
-    // Configurações: Tema e Idioma
     document.getElementById("select-theme").addEventListener("change", (e) => {
         currentTheme = e.target.value;
         localStorage.setItem("nexus_theme", currentTheme);
@@ -227,14 +216,12 @@ function setupEventListeners() {
         applyTranslations();
     });
 
-    // Logout
     document.getElementById("btn-logout").addEventListener("click", () => {
         localStorage.removeItem("nexus_user");
         currentUser = null;
         showAuthView();
     });
 
-    // Transações Modal & Formulário
     document.getElementById("btn-open-trans-modal").addEventListener("click", () => openTransModal());
     document.getElementById("btn-close-trans-modal").addEventListener("click", () => document.getElementById("modal-transacao").hidden = true);
     document.getElementById("trans-tipo-select").addEventListener("change", (e) => populateCategorySelect(e.target.value));
@@ -279,7 +266,6 @@ function setupEventListeners() {
         }
     });
 
-    // Meta / Planejamento Submit
     document.getElementById("form-meta").addEventListener("submit", async (e) => {
         e.preventDefault();
         const formData = Object.fromEntries(new FormData(e.target));
@@ -301,7 +287,6 @@ function setupEventListeners() {
         }
     });
 
-    // Excluir Meta
     document.getElementById("btn-delete-meta").addEventListener("click", async () => {
         const titulo = document.querySelector("#form-meta input[name='titulo']").value;
         if (!confirm("Deseja realmente excluir esta meta?")) return;
@@ -316,7 +301,6 @@ function setupEventListeners() {
         }
     });
 
-    // Perfil Update
     document.getElementById("form-update-profile").addEventListener("submit", async (e) => {
         e.preventDefault();
         const nome = document.getElementById("config-input-nome").value;
@@ -335,7 +319,6 @@ function setupEventListeners() {
         }
     });
 
-    // Senha Update
     document.getElementById("form-update-password").addEventListener("submit", async (e) => {
         e.preventDefault();
         const formData = Object.fromEntries(new FormData(e.target));
@@ -354,7 +337,6 @@ function setupEventListeners() {
         }
     });
 
-    // Reiniciar & Excluir Conta
     document.getElementById("btn-restart-account").addEventListener("click", async () => {
         if (!confirm("Tem certeza que deseja reiniciar sua conta (apagar transações/metas)?")) return;
         try {
@@ -376,7 +358,6 @@ function setupEventListeners() {
         } catch (err) { alert(err.message); }
     });
 
-    // Checkbox master transações
     document.getElementById("select-all-trans").addEventListener("change", (e) => {
         const checked = e.target.checked;
         document.querySelectorAll(".trans-checkbox").forEach(cb => {
@@ -401,7 +382,6 @@ function setupEventListeners() {
     });
 }
 
-/* --- Transição de Views e Estado Logado --- */
 function showAuthView() {
     document.getElementById("global-header").querySelector(".header-brand").hidden = false;
     document.getElementById("header-public-actions").hidden = false;
@@ -441,7 +421,6 @@ function switchView(viewName) {
         }
     });
 
-    // Carregar dados específicos da view
     if (viewName === "dashboard") loadDashboardData();
     if (viewName === "transacoes") loadTransactionsPage();
     if (viewName === "planejamento") loadPlanningData();
@@ -449,24 +428,24 @@ function switchView(viewName) {
     if (viewName === "configuracoes") loadConfigData();
 }
 
-/* --- API Requests & Módulos --- */
 async function fetchCategories() {
     try {
         const res = await fetch(`${API_BASE}/categorias`);
-        const data = await res.json();
-        globalCategories = data;
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.receita && data.despesa) {
+                globalCategories = data;
+            }
+        }
     } catch (e) {
-        console.error("Erro ao buscar categorias", e);
+        console.error("Usando categorias padrão de contingência", e);
     }
 }
 
 async function loadUserProfile() {
     try {
-        const res = await fetch(`${API_BASE}/transacoes/resumo?usuario=${encodeURIComponent(currentUser)}`);
-        // Extrair nome do usuário logado através do login anterior ou metadados
-        const nameParts = currentUser.split("_");
+        if (!currentUser) return;
         const firstName = currentUser.charAt(0).toUpperCase() + currentUser.slice(1);
-        
         document.getElementById("header-user-name").textContent = firstName;
         document.getElementById("greeting-text").textContent = `Olá, ${firstName}`;
     } catch (e) {
@@ -484,7 +463,6 @@ async function loadDashboardData() {
         document.getElementById("dash-receitas").textContent = formatMoney(summary.receitas);
         document.getElementById("dash-despesas").textContent = formatMoney(summary.despesas);
 
-        // Balanço Mensal Barras
         const balancoContainer = document.getElementById("dash-balanco-bars");
         balancoContainer.innerHTML = `
             <div style="display:flex; justify-content:space-around; align-items:flex-end; height:120px; padding-top:20px;">
@@ -493,7 +471,6 @@ async function loadDashboardData() {
             </div>
         `;
 
-        // Planejamento Preview
         const metaRes = await fetch(`${API_BASE}/metas/listar?usuario=${encodeURIComponent(currentUser)}`);
         const metas = await metaRes.json();
         if (metas && metas.length > 0) {
@@ -502,13 +479,11 @@ async function loadDashboardData() {
     } catch (e) { console.error(e); }
 }
 
-/* --- Transações Módulo --- */
 async function loadTransactionsPage() {
     try {
         const res = await fetch(`${API_BASE}/transacoes/listar?usuario=${encodeURIComponent(currentUser)}`);
         allTransactions = await res.json() || [];
         
-        // Calcular Resumo
         let rec = 0, desp = 0;
         allTransactions.forEach(t => {
             if (t.tipo === 'receita') rec += t.valor;
@@ -549,12 +524,10 @@ function renderTransactionsTable() {
         tbody.appendChild(tr);
     });
 
-    // Listeners de seleção individual
     document.querySelectorAll(".trans-checkbox").forEach(cb => {
         cb.addEventListener("change", updateBulkDeleteButton);
     });
 
-    // Listeners de editar/deletar unitário
     document.querySelectorAll(".btn-del-trans").forEach(btn => {
         btn.addEventListener("click", async (e) => {
             const id = e.target.getAttribute("data-id");
@@ -629,7 +602,6 @@ function populateCategorySelect(tipo, selectedCat = null) {
     });
 }
 
-/* --- Planejamento & Cofrinho Módulo --- */
 async function loadPlanningData() {
     try {
         const res = await fetch(`${API_BASE}/metas/listar?usuario=${encodeURIComponent(currentUser)}`);
@@ -647,7 +619,6 @@ async function loadPlanningData() {
             const totalMetaVal = (meta.salario_liquido * meta.porcentagem_meta) / 100;
             document.getElementById("piggy-total").textContent = formatMoney(totalMetaVal);
 
-            // Renderizar 50 quadradinhos do cofrinho proporcionais
             const boxCount = 50;
             const boxValue = totalMetaVal / boxCount;
             let savedVal = 0;
@@ -671,7 +642,6 @@ async function loadPlanningData() {
     } catch (e) { console.error(e); }
 }
 
-/* --- Relatórios e Configurações --- */
 function loadReportsData() {
     document.getElementById("report-chart-rec").innerHTML = `<p class="text-muted">Gráfico detalhado de Receitas por Categoria carregado.</p>`;
     document.getElementById("report-chart-esp").innerHTML = `<p class="text-muted">Gráfico detalhado de Despesas por Categoria carregado.</p>`;
@@ -679,16 +649,13 @@ function loadReportsData() {
 }
 
 async function loadConfigData() {
-    document.getElementById("config-input-nome").value = currentUser.split("_")[0] || "";
+    document.getElementById("config-input-nome").value = currentUser ? currentUser.split("_")[0] : "";
     document.getElementById("config-input-sobrenome").value = "";
 }
 
-/* --- PWA Service Worker --- */
 function initPWA() {
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("service-worker.js")
-            .then(() => console.log("Service Worker registrado com sucesso."))
-            .catch(err => console.error("Erro ao registrar SW:", err));
+        navigator.serviceWorker.register("service-worker.js").catch(() => {});
     }
 
     window.addEventListener("beforeinstallprompt", (e) => {
@@ -699,10 +666,7 @@ function initPWA() {
             installBtn.hidden = false;
             installBtn.addEventListener("click", () => {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === "accepted") {
-                        console.log("Usuário aceitou a instalação do PWA");
-                    }
+                deferredPrompt.userChoice.then(() => {
                     deferredPrompt = null;
                 });
             });
