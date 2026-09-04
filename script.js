@@ -1722,7 +1722,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('menu-toggle')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('open');
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        // No celular a barra desliza por cima (abre/fecha); no desktop/tablet
+        // ela só encolhe até mostrar os ícones, sem sumir da tela.
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            sidebar.classList.toggle('open');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
     });
 
     // Fecha o menu lateral ao tocar fora dele (no fundo escurecido) no celular.
