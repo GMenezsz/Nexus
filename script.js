@@ -247,7 +247,7 @@ function animateCounter(el, from, to, duration = 900, formatFn = formatCurrency)
     requestAnimationFrame(step);
 }
 
-function animateDashboardStats() {
+function animateSummaryStats() {
     const saldo = state.resumo?.saldo || 0;
     const receitas = state.resumo?.receitas || 0;
     const despesas = state.resumo?.despesas || 0;
@@ -511,7 +511,7 @@ function renderView(view) {
         case 'login': container.innerHTML = renderLogin(); break;
         case 'dashboard': 
             container.innerHTML = renderDashboard(); 
-            animateDashboardStats();
+            animateSummaryStats();
             setTimeout(() => {
                 if (typeof Chart !== 'undefined') {
                     renderDashboardCharts();
@@ -520,9 +520,9 @@ function renderView(view) {
                 }
             }, 50);
             break;
-        case 'transacoes': container.innerHTML = renderTransacoes(); break;
-        case 'receitas': container.innerHTML = renderTransacoes(); break;
-        case 'despesas': container.innerHTML = renderTransacoes(); break;
+        case 'transacoes': container.innerHTML = renderTransacoes(); animateSummaryStats(); break;
+        case 'receitas': container.innerHTML = renderTransacoes(); animateSummaryStats(); break;
+        case 'despesas': container.innerHTML = renderTransacoes(); animateSummaryStats(); break;
         case 'planejamento': container.innerHTML = renderPlanejamento(); break;
         case 'relatorios': 
             container.innerHTML = renderRelatorios(); 
@@ -851,6 +851,7 @@ function renderTransacoes() {
     const saldo = state.resumo?.saldo || 0;
     const receitas = state.resumo?.receitas || 0;
     const despesas = state.resumo?.despesas || 0;
+    const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
     
     let transacoes = state.transactions || [];
     
@@ -873,15 +874,15 @@ function renderTransacoes() {
             <div class="card-grid">
                 <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
                     <div class="card-title">💰 Saldo</div>
-                    <div class="card-value">${formatCurrency(saldo)}</div>
+                    <div class="card-value" id="stat-saldo-value">${formatCurrency(prev.saldo)}</div>
                 </div>
                 <div class="card stat-success" style="cursor:pointer;" onclick="navigate('receitas')">
                     <div class="card-title">📈 Receitas</div>
-                    <div class="card-value">${formatCurrency(receitas)}</div>
+                    <div class="card-value" id="stat-receitas-value">${formatCurrency(prev.receitas)}</div>
                 </div>
                 <div class="card stat-danger" style="cursor:pointer;" onclick="navigate('despesas')">
                     <div class="card-title">📉 Despesas</div>
-                    <div class="card-value">${formatCurrency(despesas)}</div>
+                    <div class="card-value" id="stat-despesas-value">${formatCurrency(prev.despesas)}</div>
                 </div>
             </div>
 
