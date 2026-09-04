@@ -177,7 +177,17 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .header-left, .header-right { display: flex; align-items: center; gap: 12px; }
-.brand { font-weight: 700; font-size: 1.2rem; color: var(--color-purple); }
+.brand {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--color-purple);
+    text-decoration: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.2s;
+}
+.brand:hover { opacity: 0.8; }
 
 .icon-btn {
     background: none;
@@ -771,6 +781,18 @@ tr:hover td { background: var(--bg-input); }
 }
 
 @media (max-width: 768px) {
+    /* Header sempre fixo no celular — nunca some ao rolar a página */
+    #main-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 200;
+    }
+    .app-container {
+        margin-top: 64px;
+    }
     .sidebar {
         position: fixed;
         left: -280px;
@@ -816,7 +838,6 @@ tr:hover td { background: var(--bg-input); }
     .card-grid { grid-template-columns: 1fr; }
     .dashboard-header { flex-direction: column; align-items: stretch; }
     .dashboard-header .user-profile { justify-content: flex-start; }
-    .brand span.brand-text { display: none; }
     .user-profile span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .avatar-upload-row { flex-direction: column; align-items: flex-start; }
     .summary-list { gap: var(--space-md); }
