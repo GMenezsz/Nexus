@@ -715,23 +715,34 @@ tr:hover td { background: var(--bg-input); }
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     margin-top: 10px;
 }
 .cofrinho-mini-cell {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
+    width: 46px;
+    height: 46px;
+    border-radius: 8px;
     background: var(--bg-input);
-    border: 1.5px solid var(--border-color);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2px;
+    font-weight: 700;
+    font-size: 0.64rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 .cofrinho-mini-cell.completed {
     background: var(--color-success);
     border-color: var(--color-success);
+    color: #fff;
 }
 .cofrinho-mini-more {
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-muted);
     margin-left: 2px;
