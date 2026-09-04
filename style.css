@@ -453,6 +453,15 @@ body.auth-mode #main-content > .view {
     gap: 8px;
 }
 
+/* Espaçamento padrão para títulos de página e cards empilhados
+   (Planejamento, Relatórios, Configurações, etc.) */
+.view > h1 {
+    margin-bottom: 20px;
+}
+.view > .card + .card {
+    margin-top: 20px;
+}
+
 .card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
