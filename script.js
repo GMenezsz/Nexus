@@ -150,17 +150,17 @@ const api = {
         });
     },
 
-    async criarMeta(usuario, titulo, salario_liquido, porcentagem_meta) {
+    async criarMeta(usuario, titulo, meta_total, anos) {
         return this.request('/metas/criar', {
             method: 'POST',
-            body: JSON.stringify({ usuario, titulo, salario_liquido, porcentagem_meta })
+            body: JSON.stringify({ usuario, titulo, meta_total, anos })
         });
     },
 
-    async atualizarMeta(usuario, titulo_antigo, titulo_novo, salario_liquido, porcentagem_meta) {
+    async atualizarMeta(usuario, titulo_antigo, titulo_novo, meta_total, anos) {
         return this.request('/metas/atualizar', {
             method: 'PUT',
-            body: JSON.stringify({ usuario, titulo_antigo, titulo_novo, salario_liquido, porcentagem_meta })
+            body: JSON.stringify({ usuario, titulo_antigo, titulo_novo, meta_total, anos })
         });
     },
 
@@ -485,8 +485,6 @@ async function loadDashboardData() {
         const metasResp = await api.listarMetas(state.user);
         state.metas = (metasResp?.metas || []).map(m => ({
             ...m,
-            porcentagem_meta: m.salario_liquido ? Math.round((m.meta / m.salario_liquido) * 10000) / 100 : 0,
-            valor_objetivo: m.meta,
             parcelas: m.parcelas || []
         }));
         renderView(state.currentView);
@@ -742,14 +740,17 @@ function renderDashboard() {
                 <h3 class="mb-md">🎯 Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
                     <div class="row-between">
-                        <div><strong>${state.metas[0].titulo}</strong></div>
                         <div>
-                            <div style="font-size:0.7rem;color:var(--text-muted);">Salário Líquido</div>
-                            <strong>${formatCurrency(state.metas[0].salario_liquido)}</strong>
+                            <strong>${state.metas[0].titulo}</strong>
+                            ${state.metas.length > 1 ? `<div style="font-size:0.7rem;color:var(--text-muted);">+${state.metas.length - 1} meta${state.metas.length - 1 > 1 ? 's' : ''}</div>` : ''}
                         </div>
                         <div>
-                            <div style="font-size:0.7rem;color:var(--text-muted);">Porcentagem da Meta (%)</div>
-                            <strong>${state.metas[0].porcentagem_meta}%</strong>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Meta Total</div>
+                            <strong>${formatCurrency(state.metas[0].meta_total)}</strong>
+                        </div>
+                        <div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Prazo</div>
+                            <strong>${state.metas[0].anos} ano${state.metas[0].anos > 1 ? 's' : ''}</strong>
                         </div>
                         <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
@@ -939,76 +940,91 @@ function renderTransacoes() {
 // ========================================
 // RENDER: PLANEJAMENTO
 // ========================================
-const TOTAL_PARCELAS_META = 12;
+
+// Renderiza o card de uma meta específica: resumo + "cofrinho" com uma
+// parcela mensal para cada mês dentro do prazo (anos * 12).
+function renderMetaCard(meta) {
+    const totalParcelas = meta.total_parcelas || (meta.anos * 12);
+    const valorParcela = meta.valor_parcela ?? (meta.meta_total / totalParcelas);
+    const parcelasConcluidas = meta.parcelas || [];
+    const valorAtual = parcelasConcluidas.length * valorParcela;
+    const progresso = meta.meta_total > 0 ? Math.min(100, (valorAtual / meta.meta_total) * 100) : 0;
+
+    return `
+        <div class="card">
+            <div class="row-between mb-md">
+                <h3 style="margin:0;">${meta.titulo}</h3>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn-secondary" onclick="editMeta('${meta.titulo}')">Editar</button>
+                    <button type="button" class="btn-danger" onclick="deleteMeta('${meta.titulo}')">Excluir</button>
+                </div>
+            </div>
+            <div class="summary-list mb-md">
+                <div><strong>Valor Guardado:</strong> <span style="color:var(--color-success);font-weight:700;">${formatCurrency(valorAtual)}</span></div>
+                <div><strong>Meta Total:</strong> ${formatCurrency(meta.meta_total)}</div>
+                <div><strong>Prazo:</strong> ${meta.anos} ano${meta.anos > 1 ? 's' : ''} (${totalParcelas} parcelas mensais)</div>
+                <div><strong>Valor por Mês:</strong> ${formatCurrency(valorParcela)}</div>
+                <div><strong>Progresso:</strong> ${progresso.toFixed(1)}%</div>
+            </div>
+            <div class="text-center text-muted mb-md" style="background:var(--bg-input);border-radius:12px;padding:16px;">
+                🎯 Clique nos quadradinhos para marcar uma parcela como guardada. Uma vez marcada, ela fica salva para sempre.
+            </div>
+            <div class="cofrinho-grid">
+                ${Array.from({length: totalParcelas}, (_, i) => {
+                    const concluida = parcelasConcluidas.includes(i);
+                    return `
+                        <div class="cofrinho-cell${concluida ? ' completed' : ''}"
+                             data-index="${i}"
+                             data-titulo="${meta.titulo}"
+                             onclick="${concluida ? '' : `toggleCofrinho(this)`}"
+                             title="${concluida ? 'Parcela guardada — não pode ser desmarcada' : `Marcar ${formatCurrency(valorParcela)} como guardado`}">
+                            ${formatCompactCurrency(valorParcela)}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
 
 function renderPlanejamento() {
-    const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
-    const metaTotal = meta ? (meta.valor_objetivo ?? meta.salario_liquido * (meta.porcentagem_meta / 100)) : 0;
-    const parcelasConcluidas = meta ? (meta.parcelas || []) : [];
-    const valorParcela = metaTotal / TOTAL_PARCELAS_META;
-    const valorAtual = parcelasConcluidas.length * valorParcela;
+    const metas = state.metas || [];
 
     return `
         <div class="view">
             <h1>🎯 Planejamento</h1>
 
             <div class="card">
-                <h3>${meta ? 'Editar Meta' : 'Criar Meta'}</h3>
+                <h3>Nova Meta</h3>
                 <form id="meta-form">
                     <div class="form-group">
                         <label>Título</label>
-                        <input type="text" id="meta-titulo" value="${meta ? meta.titulo : ''}" placeholder="Ex: Viagem" required />
+                        <input type="text" id="meta-titulo" placeholder="Ex: Viagem" required />
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Salário Líquido</label>
-                            <input type="text" id="meta-salario" value="${meta ? 'R$ ' + meta.salario_liquido.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}" placeholder="R$ 0,00" oninput="maskCurrency(this)" />
+                            <label>Valor da Meta</label>
+                            <input type="text" id="meta-valor" placeholder="R$ 0,00" oninput="maskCurrency(this)" required />
                         </div>
                         <div class="form-group">
-                            <label>Porcentagem da Meta (%)</label>
-                            <input type="number" id="meta-porcentagem" value="${meta ? meta.porcentagem_meta : ''}" placeholder="10" min="0" max="100" required />
+                            <label>Em quantos anos?</label>
+                            <input type="number" id="meta-anos" placeholder="Ex: 1" min="1" max="40" required />
                         </div>
                     </div>
-                    <button type="submit" class="btn-primary">${meta ? 'Atualizar' : 'Criar'}</button>
-                    ${meta ? `<button type="button" class="btn-danger" onclick="deleteMeta('${meta.titulo}')" style="margin-left:8px;">Deletar</button>` : ''}
+                    <button type="submit" class="btn-primary">Criar Meta</button>
                 </form>
             </div>
 
-            ${meta ? `
-                <div class="card">
-                    <h3 class="mb-md">📊 Resumo da Meta</h3>
-                    <div class="summary-list">
-                        <div><strong>Valor Atual:</strong> <span style="color:var(--color-success);font-weight:700;">${formatCurrency(valorAtual)}</span></div>
-                        <div><strong>Meta Total:</strong> ${formatCurrency(metaTotal)}</div>
-                        <div><strong>Porcentagem:</strong> ${meta.porcentagem_meta}%</div>
-                        <div><strong>Salário:</strong> ${formatCurrency(meta.salario_liquido)}</div>
+            ${metas.length > 0
+                ? metas.map(meta => renderMetaCard(meta)).join('')
+                : `
+                    <div class="card">
+                        <div class="empty-state">
+                            <p>Opa! Você ainda não possui nenhuma meta definida.</p>
+                        </div>
                     </div>
-                    <div class="text-center text-muted mb-md" style="background:var(--bg-input);border-radius:12px;padding:16px;">
-                        🎯 Clique nos quadradinhos para marcar uma parcela como guardada. Uma vez marcada, ela fica salva para sempre.
-                    </div>
-                    <div class="cofrinho-grid">
-                        ${Array.from({length: TOTAL_PARCELAS_META}, (_, i) => {
-                            const concluida = parcelasConcluidas.includes(i);
-                            return `
-                                <div class="cofrinho-cell${concluida ? ' completed' : ''}"
-                                     data-index="${i}"
-                                     data-titulo="${meta.titulo}"
-                                     onclick="${concluida ? '' : `toggleCofrinho(this)`}"
-                                     title="${concluida ? 'Parcela guardada — não pode ser desmarcada' : `Marcar ${formatCurrency(valorParcela)} como guardado`}">
-                                    ${formatCompactCurrency(valorParcela)}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            ` : `
-                <div class="card">
-                    <div class="empty-state">
-                        <p>Opa! Você ainda não possui um planejamento definido para este mês.</p>
-                        <button class="btn-primary" onclick="navigate('planejamento')">Definir meu planejamento</button>
-                    </div>
-                </div>
-            `}
+                `
+            }
         </div>
     `;
 }
@@ -1262,22 +1278,16 @@ function bindEvents(view) {
         metaForm.onsubmit = async (e) => {
             e.preventDefault();
             const titulo = document.getElementById('meta-titulo').value.trim();
-            const salarioStr = document.getElementById('meta-salario').value;
-            const porcentagem = parseFloat(document.getElementById('meta-porcentagem').value);
-            const salario = unmaskCurrency(salarioStr);
-            if (!titulo || !salario || isNaN(porcentagem)) {
-                showToast('Preencha todos os campos', 'error');
+            const valorStr = document.getElementById('meta-valor').value;
+            const anos = parseInt(document.getElementById('meta-anos').value, 10);
+            const metaTotal = unmaskCurrency(valorStr);
+            if (!titulo || !metaTotal || isNaN(anos) || anos < 1) {
+                showToast('Preencha todos os campos corretamente', 'error');
                 return;
             }
-            const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
             try {
-                if (meta) {
-                    await api.atualizarMeta(state.user, meta.titulo, titulo, salario, porcentagem);
-                    showToast('Meta atualizada!', 'success');
-                } else {
-                    await api.criarMeta(state.user, titulo, salario, porcentagem);
-                    showToast('Meta criada!', 'success');
-                }
+                await api.criarMeta(state.user, titulo, metaTotal, anos);
+                showToast('Meta criada!', 'success');
                 await loadDashboardData();
             } catch (err) {
                 showToast('Erro: ' + (err.message || ''), 'error');
@@ -1357,7 +1367,7 @@ window.toggleCofrinho = async (el) => {
 
         // Atualiza o estado local com o que o servidor confirmou salvo,
         // para refletir exatamente o que está persistido no banco.
-        const meta = state.metas && state.metas.length > 0 ? state.metas[0] : null;
+        const meta = (state.metas || []).find(m => m.titulo === titulo);
         if (meta) meta.parcelas = resp.parcelas || meta.parcelas;
 
         el.classList.remove('loading');
@@ -1544,6 +1554,65 @@ window.deleteMeta = async (titulo) => {
             showToast('Erro: ' + (err.message || ''), 'error');
         }
     });
+};
+
+window.editMeta = (titulo) => {
+    const meta = (state.metas || []).find(m => m.titulo === titulo);
+    if (!meta) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header">
+                <h2>✏️ Editar Meta</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <form id="edit-meta-form">
+                <div class="form-group">
+                    <label>Título</label>
+                    <input type="text" id="edit-meta-titulo" value="${meta.titulo}" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor da Meta</label>
+                        <input type="text" id="edit-meta-valor" value="R$ ${meta.meta_total.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}" oninput="maskCurrency(this)" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Em quantos anos?</label>
+                        <input type="number" id="edit-meta-anos" value="${meta.anos}" min="1" max="40" required />
+                    </div>
+                </div>
+                ${meta.parcelas && meta.parcelas.length > 0 ? `
+                    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
+                        ⚠️ Reduzir o prazo pode ocultar parcelas que já foram marcadas como guardadas.
+                    </p>
+                ` : ''}
+                <button type="submit" class="btn-primary" style="width:100%;">Salvar Alterações</button>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    document.getElementById('edit-meta-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const novoTitulo = document.getElementById('edit-meta-titulo').value.trim();
+        const novoValor = unmaskCurrency(document.getElementById('edit-meta-valor').value);
+        const novosAnos = parseInt(document.getElementById('edit-meta-anos').value, 10);
+        if (!novoTitulo || !novoValor || isNaN(novosAnos) || novosAnos < 1) {
+            showToast('Preencha todos os campos corretamente', 'error');
+            return;
+        }
+        try {
+            await api.atualizarMeta(state.user, meta.titulo, novoTitulo, novoValor, novosAnos);
+            showToast('Meta atualizada!', 'success');
+            modal.remove();
+            await loadDashboardData();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    };
 };
 
 window.removeProfilePhoto = async () => {
