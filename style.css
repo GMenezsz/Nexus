@@ -710,6 +710,33 @@ tr:hover td { background: var(--bg-input); }
     pointer-events: none;
 }
 
+/* Mini preview do cofrinho usado no card de Planejamento do Dashboard */
+.cofrinho-mini-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+}
+.cofrinho-mini-cell {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-color);
+    flex-shrink: 0;
+}
+.cofrinho-mini-cell.completed {
+    background: var(--color-success);
+    border-color: var(--color-success);
+}
+.cofrinho-mini-more {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-left: 2px;
+}
+
 /* Modal */
 .modal-overlay {
     position: fixed;
