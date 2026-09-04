@@ -754,6 +754,7 @@ function renderDashboard() {
                         </div>
                         <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
                     </div>
+                    ${renderMetaMiniPreview(state.metas[0])}
                 ` : `
                     <div class="empty-state">
                         <p>Opa! Você ainda não possui um planejamento definido para este mês.</p>
@@ -940,6 +941,28 @@ function renderTransacoes() {
 // ========================================
 // RENDER: PLANEJAMENTO
 // ========================================
+
+// Preview compacto usado no card de Planejamento do Dashboard: mostra até
+// 10 quadradinhos (marcados/não marcados) e "..." se houver mais parcelas.
+function renderMetaMiniPreview(meta) {
+    const totalParcelas = meta.total_parcelas || (meta.anos * 12);
+    const parcelasConcluidas = meta.parcelas || [];
+    const limite = Math.min(10, totalParcelas);
+
+    const cells = Array.from({length: limite}, (_, i) => {
+        const concluida = parcelasConcluidas.includes(i);
+        return `<div class="cofrinho-mini-cell${concluida ? ' completed' : ''}"></div>`;
+    }).join('');
+
+    const temMais = totalParcelas > limite;
+
+    return `
+        <div class="cofrinho-mini-grid">
+            ${cells}
+            ${temMais ? `<span class="cofrinho-mini-more">...</span>` : ''}
+        </div>
+    `;
+}
 
 // Renderiza o card de uma meta específica: resumo + "cofrinho" com uma
 // parcela mensal para cada mês dentro do prazo (anos * 12).
