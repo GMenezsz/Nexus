@@ -32,9 +32,54 @@ const state = {
 let deferredInstallPrompt = null;
 
 // Paleta de cores para os gráficos por categoria
-const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71'];
+const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71', '#c0392b', '#16a085', '#e84393', '#0984e3', '#fdcb6e', '#00b894', '#6c5ce7', '#d63031', '#0abde3', '#ff9f43'];
 const dashboardCharts = { receitas: null, despesas: null, balanco: null };
 const relatoriosCharts = { receitas: null, despesas: null };
+
+// ========================================
+// CORES DE CATEGORIA (nunca se repetem)
+// Cada categoria — de receita ou de despesa — recebe sempre a mesma cor,
+// e nenhuma categoria repete a cor de outra, mesmo que existam mais
+// categorias do que cores na paleta base (nesse caso, cores extras são
+// geradas distribuindo matizes ao redor do círculo de cores).
+// ========================================
+function generateDistinctColors(count) {
+    if (count <= CHART_COLORS.length) return CHART_COLORS.slice(0, count);
+    const colors = CHART_COLORS.slice();
+    const extras = count - CHART_COLORS.length;
+    for (let i = 0; i < extras; i++) {
+        const hue = Math.round((360 / extras) * i);
+        colors.push(`hsl(${hue}, 62%, 50%)`);
+    }
+    return colors;
+}
+
+// Monta (ou remonta) o mapa nome-da-categoria -> cor a partir de TODAS as
+// categorias cadastradas (receitas + despesas juntas), garantindo que
+// nenhuma cor se repita entre elas.
+function buildCategoryColorMap() {
+    const receitas = (state.categories && state.categories.receita) || [];
+    const despesas = (state.categories && state.categories.despesa) || [];
+    const todasCategorias = [...new Set([...receitas, ...despesas])];
+    const cores = generateDistinctColors(todasCategorias.length);
+    const mapa = {};
+    todasCategorias.forEach((cat, i) => { mapa[cat] = cores[i]; });
+    state.categoryColors = mapa;
+}
+
+// Retorna a cor de uma categoria. Se ela ainda não estiver no mapa (ex:
+// categoria antiga usada em transações passadas mas removida da lista
+// atual), reserva uma cor nova que ainda não está em uso por ninguém.
+function colorForCategoria(nome) {
+    if (!state.categoryColors) state.categoryColors = {};
+    if (state.categoryColors[nome]) return state.categoryColors[nome];
+
+    const usadas = new Set(Object.values(state.categoryColors));
+    const candidatas = generateDistinctColors(usadas.size + CHART_COLORS.length);
+    const nova = candidatas.find(c => !usadas.has(c)) || `hsl(${Math.floor(Math.random() * 360)}, 60%, 50%)`;
+    state.categoryColors[nome] = nova;
+    return nova;
+}
 
 // ========================================
 // LEGENDA DE CATEGORIAS (única fonte da verdade)
@@ -51,7 +96,7 @@ function renderCategoriaLegend(labels, values, colors) {
     return labels.map((categoria, i) => {
         const valor = values[i];
         const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-        const color = colors ? colors[i] : CHART_COLORS[i % CHART_COLORS.length];
+        const color = colors ? colors[i] : colorForCategoria(categoria);
         return `
             <div class="legend-row">
                 <div class="legend-row-left">
@@ -71,9 +116,10 @@ function renderCategoriaLegend(labels, values, colors) {
 function renderCategoriaLegendFromTotals(totals) {
     const labels = Object.keys(totals);
     const values = Object.values(totals);
-    const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+    const colors = labels.map(cat => colorForCategoria(cat));
     return renderCategoriaLegend(labels, values, colors);
 }
+
 
 // ========================================
 // API CLIENT
@@ -482,6 +528,7 @@ async function loadDashboardData() {
         const transacoesResp = await api.listarTransacoes(state.user);
         state.transactions = transacoesResp?.transacoes || [];
         state.categories = await api.listarCategorias();
+        buildCategoryColorMap();
         const metasResp = await api.listarMetas(state.user);
         state.metas = (metasResp?.metas || []).map(m => ({
             ...m,
@@ -798,7 +845,7 @@ function renderDoughnutChart(canvasId, legendId, totals, key, chartsObj) {
     }
     canvas.style.display = '';
 
-    const colors = labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+    const colors = labels.map(cat => colorForCategoria(cat));
 
     if (typeof Chart === 'undefined') {
         if (legendEl) {
