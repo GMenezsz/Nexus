@@ -739,22 +739,23 @@ function renderDashboard() {
             <div class="card">
                 <h3 class="mb-md">🎯 Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
-                    <div class="row-between">
-                        <div>
-                            <strong>${state.metas[0].titulo}</strong>
-                            ${state.metas.length > 1 ? `<div style="font-size:0.7rem;color:var(--text-muted);">+${state.metas.length - 1} meta${state.metas.length - 1 > 1 ? 's' : ''}</div>` : ''}
+                    ${state.metas.map((meta, idx) => `
+                        <div${idx > 0 ? ' style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);"' : ''}>
+                            <div class="row-between">
+                                <div><strong>${meta.titulo}</strong></div>
+                                <div>
+                                    <div style="font-size:0.7rem;color:var(--text-muted);">Meta Total</div>
+                                    <strong>${formatCurrency(meta.meta_total)}</strong>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.7rem;color:var(--text-muted);">Prazo</div>
+                                    <strong>${meta.anos} ano${meta.anos > 1 ? 's' : ''}</strong>
+                                </div>
+                            </div>
+                            ${renderMetaMiniPreview(meta)}
                         </div>
-                        <div>
-                            <div style="font-size:0.7rem;color:var(--text-muted);">Meta Total</div>
-                            <strong>${formatCurrency(state.metas[0].meta_total)}</strong>
-                        </div>
-                        <div>
-                            <div style="font-size:0.7rem;color:var(--text-muted);">Prazo</div>
-                            <strong>${state.metas[0].anos} ano${state.metas[0].anos > 1 ? 's' : ''}</strong>
-                        </div>
-                        <button class="btn-secondary" onclick="navigate('planejamento')">Ver detalhes →</button>
-                    </div>
-                    ${renderMetaMiniPreview(state.metas[0])}
+                    `).join('')}
+                    <button class="btn-secondary" style="width:100%;margin-top:20px;" onclick="navigate('planejamento')">Ver detalhes →</button>
                 ` : `
                     <div class="empty-state">
                         <p>Opa! Você ainda não possui um planejamento definido para este mês.</p>
@@ -943,15 +944,17 @@ function renderTransacoes() {
 // ========================================
 
 // Preview compacto usado no card de Planejamento do Dashboard: mostra até
-// 10 quadradinhos (marcados/não marcados) e "..." se houver mais parcelas.
+// 10 quadradinhos (marcados/não marcados), com o valor de cada parcela
+// dentro, e "..." se houver mais parcelas do que o limite exibido.
 function renderMetaMiniPreview(meta) {
     const totalParcelas = meta.total_parcelas || (meta.anos * 12);
+    const valorParcela = meta.valor_parcela ?? (meta.meta_total / totalParcelas);
     const parcelasConcluidas = meta.parcelas || [];
     const limite = Math.min(10, totalParcelas);
 
     const cells = Array.from({length: limite}, (_, i) => {
         const concluida = parcelasConcluidas.includes(i);
-        return `<div class="cofrinho-mini-cell${concluida ? ' completed' : ''}"></div>`;
+        return `<div class="cofrinho-mini-cell${concluida ? ' completed' : ''}">${formatCompactCurrency(valorParcela)}</div>`;
     }).join('');
 
     const temMais = totalParcelas > limite;
