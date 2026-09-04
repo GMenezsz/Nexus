@@ -484,6 +484,15 @@ body.auth-mode #main-content > .view {
 .stat-danger .card-value { color: var(--color-danger); }
 .stat-info .card-value { color: var(--color-info); }
 
+/* Animação suave ao passar o mouse nos cards da Dashboard */
+.dashboard-view .card {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dashboard-view .card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+}
+
 .table-container {
     overflow-x: auto;
     background: var(--bg-card);
