@@ -19,7 +19,6 @@ Nexus é um PWA (Progressive Web App) de gestão financeira pessoal. Permite con
 ├── index.html         # Estrutura da SPA (header, sidebar, área de conteúdo)
 ├── style.css          # Estilos, temas e responsividade
 ├── script.js          # Lógica do front-end (SPA com hash routing, chamadas à API, renderização das telas)
-├── bancodados.py       # Camada de acesso ao SQLite (usuários, transações e metas)
 └── metas.py            # Rotas FastAPI do módulo de Metas (/metas/*)
 ```
 
