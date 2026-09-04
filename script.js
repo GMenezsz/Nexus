@@ -105,6 +105,13 @@ const api = {
         });
     },
 
+    async recuperarSenha(usuario, nova_senha) {
+        return this.request('/recuperar_senha', {
+            method: 'PUT',
+            body: JSON.stringify({ usuario, nova_senha })
+        });
+    },
+
     async getResumo(usuario) {
         return this.request(`/transacoes/resumo?usuario=${encodeURIComponent(usuario)}`);
     },
@@ -454,6 +461,8 @@ function renderView(view) {
     const container = document.getElementById('view-container');
     if (!container) return;
 
+    document.body.classList.toggle('auth-mode', view === 'login');
+
     switch (view) {
         case 'login': container.innerHTML = renderLogin(); break;
         case 'dashboard': 
@@ -541,6 +550,9 @@ function renderLogin() {
                         <label>Senha</label>
                         <input type="password" id="login-pass" placeholder="••••••••" required />
                     </div>
+                    <div class="forgot-password-link">
+                        <a href="#" id="forgot-password-link">Esqueceu sua senha?</a>
+                    </div>
                     <button type="submit" class="btn-primary">Entrar</button>
                 </form>
             </div>
@@ -564,6 +576,27 @@ function renderLogin() {
                     </div>
                     <button type="submit" class="btn-primary">Cadastrar</button>
                 </form>
+            </div>
+            <div id="forgot-form-container" style="display:none;">
+                <p class="sub" style="margin-bottom:20px;">Informe seu usuário e defina uma nova senha</p>
+                <form id="forgot-form">
+                    <div class="form-group">
+                        <label>Usuário</label>
+                        <input type="text" id="forgot-user" placeholder="seu_usuario" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Nova senha</label>
+                        <input type="password" id="forgot-pass" placeholder="••••••••" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Confirmar nova senha</label>
+                        <input type="password" id="forgot-pass-confirm" placeholder="••••••••" required />
+                    </div>
+                    <button type="submit" class="btn-primary">Atualizar Senha</button>
+                </form>
+                <div class="forgot-back-link">
+                    <a href="#" id="forgot-back-link">← Voltar para o login</a>
+                </div>
             </div>
         </div>
     `;
@@ -1102,6 +1135,55 @@ function bindEvents(view) {
                 }
             } catch (err) {
                 showToast('Erro: ' + (err.message || 'Falha no login'), 'error');
+            }
+        };
+    }
+
+    const forgotLink = document.getElementById('forgot-password-link');
+    if (forgotLink) {
+        forgotLink.onclick = (e) => {
+            e.preventDefault();
+            document.querySelector('.login-tabs').style.display = 'none';
+            document.getElementById('login-form-container').style.display = 'none';
+            document.getElementById('register-form-container').style.display = 'none';
+            document.getElementById('forgot-form-container').style.display = 'block';
+        };
+    }
+
+    const forgotBackLink = document.getElementById('forgot-back-link');
+    if (forgotBackLink) {
+        forgotBackLink.onclick = (e) => {
+            e.preventDefault();
+            document.getElementById('forgot-form-container').style.display = 'none';
+            document.querySelector('.login-tabs').style.display = 'flex';
+            document.querySelectorAll('.login-tabs button').forEach(b => b.classList.remove('active'));
+            document.querySelector('.login-tabs button[data-tab="login"]')?.classList.add('active');
+            document.getElementById('login-form-container').style.display = 'block';
+            document.getElementById('register-form-container').style.display = 'none';
+        };
+    }
+
+    const forgotForm = document.getElementById('forgot-form');
+    if (forgotForm) {
+        forgotForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('forgot-user').value.trim();
+            const pass = document.getElementById('forgot-pass').value;
+            const passConfirm = document.getElementById('forgot-pass-confirm').value;
+            if (!user || !pass || !passConfirm) {
+                showToast('Preencha todos os campos', 'error');
+                return;
+            }
+            if (pass !== passConfirm) {
+                showToast('As senhas não coincidem', 'error');
+                return;
+            }
+            try {
+                await api.recuperarSenha(user, pass);
+                showToast('Senha atualizada com sucesso! Faça login.', 'success');
+                forgotBackLink.onclick(new Event('click'));
+            } catch (err) {
+                showToast('Erro: ' + (err.message || 'Falha ao atualizar senha'), 'error');
             }
         };
     }
