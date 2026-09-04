@@ -579,7 +579,7 @@ function checkChartJs() {
 function renderLogin() {
     return `
         <div class="login-container">
-            <h1>💰 Nexus</h1>
+            <h1> Nexus</h1>
             <p class="sub">Entre ou crie sua conta</p>
             <div class="login-tabs">
                 <button class="active" data-tab="login">Entrar</button>
@@ -661,7 +661,7 @@ function renderDashboard() {
     return `
         <div class="view dashboard-view">
             <div class="dashboard-header">
-                <h1>👋 Olá, ${nome}</h1>
+                <h1> Olá, ${nome}</h1>
                 <div class="user-profile" onclick="navigate('configuracoes')">
                     ${renderAvatar('normal')}
                     <span>${fullName}</span>
@@ -1111,10 +1111,10 @@ function renderConfiguracoes() {
                     </div>
                 </div>
                 <div class="avatar-upload-actions">
-                    <label for="foto-input" class="btn-secondary">📷 Alterar Foto</label>
+                    <label for="foto-input" class="btn-secondary"> Alterar Foto</label>
                     <input type="file" id="foto-input" accept="image/*" class="visually-hidden-input" />
                     ${state.userFoto ? `<button class="btn-secondary" onclick="removeProfilePhoto()">Remover Foto</button>` : ''}
-                    <button class="btn-secondary" onclick="updateProfile()">✏️ Editar Nome</button>
+                    <button class="btn-secondary" onclick="updateProfile()"> Editar Nome</button>
                 </div>
             </div>
 
@@ -1134,7 +1134,7 @@ function renderConfiguracoes() {
             </div>
 
             <div class="card">
-                <h3 class="mb-md">🎨 Tema</h3>
+                <h3 class="mb-md"> Tema</h3>
                 <div class="row-wrap-sm">
                     <button class="btn-secondary" onclick="setTheme('light')">☀️ Claro</button>
                     <button class="btn-secondary" onclick="setTheme('dark')">🌙 Escuro</button>
@@ -1144,9 +1144,9 @@ function renderConfiguracoes() {
             <div class="card" style="border-color:var(--color-danger);">
                 <h3 class="mb-md" style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
                 <div class="row-wrap-sm">
-                    <button class="btn-danger" onclick="resetAccount()">🔄 Resetar Conta</button>
+                    <button class="btn-danger" onclick="resetAccount()"> Resetar Conta</button>
                     <button class="btn-danger" onclick="deleteAccount()">Excluir Conta</button>
-                    <button class="btn-secondary" onclick="doLogout()">🚪 Sair</button>
+                    <button class="btn-secondary" onclick="doLogout()"> Sair</button>
                 </div>
             </div>
         </div>
@@ -1588,7 +1588,7 @@ window.updateProfile = () => {
     modal.innerHTML = `
         <div class="modal" style="max-width:400px;">
             <div class="modal-header">
-                <h2>✏️ Editar Nome</h2>
+                <h2> Editar Nome</h2>
                 <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
             <p class="sub" style="text-align:left;margin-bottom:20px;">Qual é o seu nome?</p>
@@ -1622,7 +1622,7 @@ function showEditSobrenomeModal(nome, sobrenomeAtual) {
     modal.innerHTML = `
         <div class="modal" style="max-width:400px;">
             <div class="modal-header">
-                <h2>✏️ Editar Sobrenome</h2>
+                <h2> Editar Sobrenome</h2>
                 <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
             <p class="sub" style="text-align:left;margin-bottom:20px;">E o seu sobrenome, <strong>${formatName(nome)}</strong>?</p>
@@ -1771,7 +1771,7 @@ window.openTransactionModal = (tx = null) => {
     modal.innerHTML = `
         <div class="modal">
             <div class="modal-header">
-                <h2>${isEdicao ? '✏️ Editar Transação' : '➕ Nova Transação'}</h2>
+                <h2>${isEdicao ? ' Editar Transação' : '➕ Nova Transação'}</h2>
                 <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
             <form id="transaction-form">
