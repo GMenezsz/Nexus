@@ -287,7 +287,29 @@ button, input, select, textarea { font-family: inherit; }
     flex-shrink: 0;
 }
 
+/* Modo recolhido (desktop/tablet) — some com o texto, deixa só os ícones à mostra */
+.sidebar.collapsed {
+    width: 64px;
+    padding: 16px 8px;
+}
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 12px 8px;
+    gap: 0;
+}
+.sidebar.collapsed .nav-label {
+    display: none;
+}
+
 .nav-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+.icone-png {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
 .nav-item {
     display: flex;
     align-items: center;
@@ -446,6 +468,9 @@ tr:hover td { background: var(--bg-input); }
 
 /* Tabela vira lista de cartões em telas pequenas */
 @media (max-width: 640px) {
+    /* Some com a saudação "Olá, nome" no celular — no desktop continua aparecendo */
+    .dashboard-header h1 { display: none; }
+
     .table-container { border: none; background: transparent; padding: 0; overflow: visible; }
     table, thead, tbody, th, td, tr { display: block; }
     thead { display: none; }
@@ -690,6 +715,10 @@ tr:hover td { background: var(--bg-input); }
         box-shadow: var(--shadow-md);
     }
     .sidebar.open { left: 0; }
+    /* No celular a barra sempre desliza cheia — o modo "recolhido" é só de desktop */
+    .sidebar.collapsed { width: 280px; padding: 16px; }
+    .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 12px 16px; gap: 12px; }
+    .sidebar.collapsed .nav-label { display: inline; }
     /* Fundo escurecido atrás do menu — só existe quando o menu está aberto.
        Antes ficava sempre "ligado" (mesmo com o menu fechado) e, por ser
        position:fixed, cobria a tela inteira de forma invisível, bloqueando
