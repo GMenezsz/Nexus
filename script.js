@@ -24,7 +24,8 @@ const state = {
     metas: [],
     resumo: null,
     categories: { receita: [], despesa: [] },
-    filterType: null
+    filterType: null,
+    prevStats: { saldo: 0, receitas: 0, despesas: 0 }
 };
 
 // Guarda o evento de instalação da PWA até o usuário clicar no botão
@@ -215,6 +216,48 @@ const api = {
 // ========================================
 function formatCurrency(value) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+// ========================================
+// ANIMAÇÃO DE CONTADORES (saldo, receitas, despesas)
+// Sobe ou desce suavemente do valor antigo até o novo, em vez de
+// simplesmente trocar o texto na hora (o que causava o "piscar").
+// ========================================
+function animateCounter(el, from, to, duration = 900, formatFn = formatCurrency) {
+    if (!el) return;
+    const start = Number(from) || 0;
+    const end = Number(to) || 0;
+    if (start === end) {
+        el.textContent = formatFn(end);
+        return;
+    }
+    const startTime = performance.now();
+    function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cúbico
+        const current = start + (end - start) * eased;
+        el.textContent = formatFn(current);
+        if (progress < 1) {
+            requestAnimationFrame(step);
+        } else {
+            el.textContent = formatFn(end);
+        }
+    }
+    requestAnimationFrame(step);
+}
+
+function animateDashboardStats() {
+    const saldo = state.resumo?.saldo || 0;
+    const receitas = state.resumo?.receitas || 0;
+    const despesas = state.resumo?.despesas || 0;
+    const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
+
+    animateCounter(document.getElementById('stat-saldo-value'), prev.saldo, saldo);
+    animateCounter(document.getElementById('stat-receitas-value'), prev.receitas, receitas);
+    animateCounter(document.getElementById('stat-despesas-value'), prev.despesas, despesas);
+
+    state.prevStats = { saldo, receitas, despesas };
 }
 
 // Versão compacta (sem "R$") usada nos quadradinhos pequenos do cofrinho,
@@ -424,6 +467,7 @@ function doLogout() {
     state.userFullName = null;
     state.userFoto = null;
     state.filterType = null;
+    state.prevStats = { saldo: 0, receitas: 0, despesas: 0 };
     
     navigate('login');
 }
@@ -467,6 +511,7 @@ function renderView(view) {
         case 'login': container.innerHTML = renderLogin(); break;
         case 'dashboard': 
             container.innerHTML = renderDashboard(); 
+            animateDashboardStats();
             setTimeout(() => {
                 if (typeof Chart !== 'undefined') {
                     renderDashboardCharts();
@@ -611,9 +656,10 @@ function renderDashboard() {
     const despesas = state.resumo?.despesas || 0;
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
+    const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
 
     return `
-        <div class="view">
+        <div class="view dashboard-view">
             <div class="dashboard-header">
                 <h1>👋 Olá, ${nome}</h1>
                 <div class="user-profile" onclick="navigate('configuracoes')">
@@ -625,17 +671,17 @@ function renderDashboard() {
             <div class="card-grid">
                 <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
                     <div class="card-title">💰 Saldo Atual</div>
-                    <div class="card-value">${formatCurrency(saldo)}</div>
+                    <div class="card-value" id="stat-saldo-value">${formatCurrency(prev.saldo)}</div>
                     <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver todas</div>
                 </div>
                 <div class="card stat-success" style="cursor:pointer;" onclick="navigate('receitas')">
                     <div class="card-title">📈 Receitas</div>
-                    <div class="card-value">${formatCurrency(receitas)}</div>
+                    <div class="card-value" id="stat-receitas-value">${formatCurrency(prev.receitas)}</div>
                     <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver receitas</div>
                 </div>
                 <div class="card stat-danger" style="cursor:pointer;" onclick="navigate('despesas')">
                     <div class="card-title">📉 Despesas</div>
-                    <div class="card-value">${formatCurrency(despesas)}</div>
+                    <div class="card-value" id="stat-despesas-value">${formatCurrency(prev.despesas)}</div>
                     <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">Clique para ver despesas</div>
                 </div>
             </div>
@@ -1532,27 +1578,96 @@ window.removeProfilePhoto = async () => {
     });
 };
 
-window.updateProfile = async () => {
-    const nome = prompt('Novo nome:', state.userFullName?.split(' ')[0] || '');
-    const sobrenome = prompt('Novo sobrenome:', state.userFullName?.split(' ').slice(1).join(' ') || '');
-    if (nome === null || sobrenome === null) return;
-    try {
-        await api.atualizarNomeSobrenome(state.user, nome, sobrenome);
-        const nomeCompleto = `${nome} ${sobrenome}`.trim();
-        const nomeFormatado = formatName(nomeCompleto);
-        
-        state.userFullName = nomeFormatado;
-        state.userName = nomeFormatado.split(' ')[0];
-        
-        localStorage.setItem(USER_NAME_KEY, state.userName);
-        localStorage.setItem(USER_FULL_KEY, state.userFullName);
-        
-        showToast('Perfil atualizado!', 'success');
-        renderView('configuracoes');
-    } catch (err) {
-        showToast('Erro: ' + (err.message || ''), 'error');
-    }
+window.updateProfile = () => {
+    const nomeAtual = state.userFullName?.split(' ')[0] || '';
+    const sobrenomeAtual = state.userFullName?.split(' ').slice(1).join(' ') || '';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>✏️ Editar Nome</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p class="sub" style="text-align:left;margin-bottom:20px;">Qual é o seu nome?</p>
+            <form id="edit-nome-form">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" id="edit-nome-input" placeholder="João" value="${nomeAtual}" required autofocus />
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Continuar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    document.getElementById('edit-nome-form').onsubmit = (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('edit-nome-input').value.trim();
+        if (!nome) { showToast('Digite um nome válido', 'error'); return; }
+        modal.remove();
+        showEditSobrenomeModal(nome, sobrenomeAtual);
+    };
 };
+
+function showEditSobrenomeModal(nome, sobrenomeAtual) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>✏️ Editar Sobrenome</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <p class="sub" style="text-align:left;margin-bottom:20px;">E o seu sobrenome, <strong>${formatName(nome)}</strong>?</p>
+            <form id="edit-sobrenome-form">
+                <div class="form-group">
+                    <label>Sobrenome</label>
+                    <input type="text" id="edit-sobrenome-input" placeholder="Silva" value="${sobrenomeAtual}" required autofocus />
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button type="button" class="btn-secondary" id="edit-sobrenome-voltar">← Voltar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    document.getElementById('edit-sobrenome-voltar').onclick = () => {
+        modal.remove();
+        window.updateProfile();
+    };
+
+    document.getElementById('edit-sobrenome-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const sobrenome = document.getElementById('edit-sobrenome-input').value.trim();
+        if (!sobrenome) { showToast('Digite um sobrenome válido', 'error'); return; }
+        try {
+            await api.atualizarNomeSobrenome(state.user, nome, sobrenome);
+            const nomeCompleto = `${nome} ${sobrenome}`.trim();
+            const nomeFormatado = formatName(nomeCompleto);
+
+            state.userFullName = nomeFormatado;
+            state.userName = nomeFormatado.split(' ')[0];
+
+            localStorage.setItem(USER_NAME_KEY, state.userName);
+            localStorage.setItem(USER_FULL_KEY, state.userFullName);
+
+            modal.remove();
+            showToast('Perfil atualizado!', 'success');
+            renderView('configuracoes');
+        } catch (err) {
+            showToast('Erro: ' + (err.message || ''), 'error');
+        }
+    };
+}
 
 window.resetAccount = async () => {
     const modal = document.createElement('div');
