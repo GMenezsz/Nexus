@@ -280,6 +280,34 @@ button, input, select, textarea { font-family: inherit; }
     display: inline-block;
 }
 
+.btn-ver-mais {
+    background: transparent;
+    color: var(--color-purple);
+    border: none;
+    padding: 4px 4px;
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+}
+.btn-ver-mais::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: -2px;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.25s ease;
+}
+.btn-ver-mais:hover { color: var(--color-purple); opacity: 0.85; }
+.btn-ver-mais:hover::after { transform: scaleX(1); transform-origin: left; }
+
 .app-container { display: flex; min-height: calc(100vh - 64px); }
 
 /* ========================================
@@ -431,6 +459,56 @@ body.auth-mode #main-content > .view {
     border-radius: 50%;
 }
 
+.avatar-large.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+.avatar-large.clickable:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+}
+.avatar-large.clickable:active { transform: scale(0.98); }
+
+.photo-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 24px;
+    animation: fadeIn 0.2s ease;
+    cursor: zoom-out;
+}
+.photo-lightbox-overlay img {
+    max-width: min(90vw, 480px);
+    max-height: 80vh;
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    object-fit: contain;
+    cursor: default;
+}
+.photo-lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.photo-lightbox-close:hover { background: rgba(255,255,255,0.25); }
+
 .avatar-upload-row {
     display: flex;
     align-items: center;
@@ -438,10 +516,89 @@ body.auth-mode #main-content > .view {
     flex-wrap: wrap;
 }
 .avatar-upload-info { flex: 1; min-width: 160px; }
+.avatar-upload-info .profile-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+.avatar-upload-info .profile-username {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
 .avatar-upload-actions {
     display: flex;
     gap: var(--space-sm);
     flex-wrap: wrap;
+    margin-top: var(--space-md);
+}
+
+/* Convide seus amigos */
+.convite-amigos-box {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-color);
+}
+.convite-amigos-titulo {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.convite-amigos-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+.convite-amigos-link {
+    flex: 1 1 220px;
+    min-width: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+.convite-amigos-copy {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Ações de Conta — recolhível */
+.acoes-conta-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+}
+.acoes-conta-toggle h3 { margin-bottom: 0; }
+.acoes-conta-chevron {
+    font-size: 0.85rem;
+    color: var(--color-danger);
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+}
+.acoes-conta-chevron.open { transform: rotate(180deg); }
+.acoes-conta-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+}
+.acoes-conta-body.open {
+    max-height: 300px;
+    opacity: 1;
     margin-top: var(--space-md);
 }
 .visually-hidden-input {
@@ -462,6 +619,29 @@ body.auth-mode #main-content > .view {
     flex-wrap: wrap;
     gap: 8px;
 }
+
+/* Seletor de mês (Dashboard e Transações/Receitas/Despesas) */
+.mes-seletor {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 20px;
+}
+.mes-seletor-select {
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    outline: none;
+    text-transform: capitalize;
+}
+.mes-seletor-select:focus { outline: none; }
 
 /* Espaçamento padrão para títulos de página e cards empilhados
    (Planejamento, Relatórios, Configurações, etc.) */
@@ -701,9 +881,9 @@ tr:hover td { background: var(--bg-input); }
     background: var(--color-success);
     border-color: var(--color-success);
     color: #fff;
-    cursor: default;
+    cursor: pointer;
 }
-.cofrinho-cell.completed:hover { transform: none; }
+.cofrinho-cell.completed:hover { transform: scale(1.05); opacity: 0.85; }
 .cofrinho-cell.loading {
     opacity: 0.6;
     cursor: wait;
@@ -805,6 +985,49 @@ tr:hover td { background: var(--bg-input); }
     to { opacity: 1; transform: translateX(0); }
 }
 
+/* Balanço dos últimos meses (Relatórios) — gráfico de barras verticais
+   (verde = receitas, vermelho = despesas) ao lado da lista dos últimos
+   6 meses. Some sozinho quando um mês não tem valores (barra de altura 0). */
+.balanco-meses-wrap {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+.balanco-meses-chart {
+    flex: 1 1 340px;
+    min-width: 260px;
+    height: 320px;
+    position: relative;
+}
+.balanco-meses-lista {
+    flex: 1 1 220px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.balanco-mes-item {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+.balanco-mes-item:last-child { border-bottom: none; }
+.balanco-mes-titulo {
+    font-weight: 700;
+    color: var(--color-purple);
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+.balanco-mes-linha {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding: 2px 0;
+}
+
 /* Monitores grandes: evita que os cards fiquem esticados demais */
 @media (min-width: 1400px) {
     #main-content { padding: 32px 40px; }
@@ -865,11 +1088,12 @@ tr:hover td { background: var(--bg-input); }
     .modal { padding: 24px; margin: 16px; }
     .toast-container { bottom: 16px; right: 16px; left: 16px; max-width: none; }
     #main-header { padding: 10px 16px; }
-    .install-label { display: none; }
-    .btn-install { padding: 8px 10px; }
+    .btn-install { padding: 8px 12px; font-size: 0.78rem; }
     .page-header, .dashboard-header { align-items: stretch; }
     .page-header .btn-primary, .dashboard-header .btn-primary { width: 100%; }
     .chart-wrap { max-width: 200px; height: 200px; }
+    .mes-seletor { display: flex; width: 100%; justify-content: center; }
+    .balanco-meses-chart { height: 260px; }
 }
 
 @media (max-width: 480px) {
@@ -884,6 +1108,9 @@ tr:hover td { background: var(--bg-input); }
     .card { padding: 16px; }
     .legend-row { padding: 8px 0; }
     .legend-row-right { margin-left: 22px; }
+    .convite-amigos-row { flex-direction: column; }
+    .convite-amigos-copy { width: 100%; }
+    .convite-amigos-link { white-space: normal; word-break: break-all; }
 }
 
 @media (max-width: 360px) {
