@@ -4,7 +4,7 @@
 
 console.log('🔵 SCRIPT CARREGADO - v10');
 
-const API_BASE = 'https://nexus-api-mz3t.onrender.com';
+const API_BASE = 'https://nexus-api-teste.onrender.com';
 const STORAGE_KEY = 'nexus_user';
 const USER_NAME_KEY = 'nexus_user_name';
 const USER_FULL_KEY = 'nexus_user_full';
@@ -33,8 +33,15 @@ let deferredInstallPrompt = null;
 
 // Paleta de cores para os gráficos por categoria
 const CHART_COLORS = ['#8b7fe8', '#4caf84', '#dc3545', '#f5b86e', '#6a8cff', '#e67ce6', '#4dd0c4', '#f2994a', '#9b59b6', '#2ecc71', '#c0392b', '#16a085', '#e84393', '#0984e3', '#fdcb6e', '#00b894', '#6c5ce7', '#d63031', '#0abde3', '#ff9f43'];
+// Cor única para TODAS as categorias criadas pelo próprio usuário
+// (diferente da paleta usada nas categorias fixas do sistema). Se adapta
+// ao tema: branca no tema escuro, preta no tema claro.
+function getCustomCategoryColor() {
+    return state.theme === 'dark' ? '#ffffff' : '#000000';
+}
+const NOVA_CATEGORIA_VALUE = '__nova_categoria__';
 const dashboardCharts = { receitas: null, despesas: null, balanco: null };
-const relatoriosCharts = { receitas: null, despesas: null };
+const relatoriosCharts = { receitas: null, despesas: null, balancoMeses: null };
 
 // ========================================
 // CORES DE CATEGORIA (nunca se repetem)
@@ -60,21 +67,36 @@ function generateDistinctColors(count) {
 function buildCategoryColorMap() {
     const receitas = (state.categories && state.categories.receita) || [];
     const despesas = (state.categories && state.categories.despesa) || [];
-    const todasCategorias = [...new Set([...receitas, ...despesas])];
+    const personalizadas = (state.categories && state.categories.personalizadas) || { receita: [], despesa: [] };
+    state.customCategoryNames = new Set([...(personalizadas.receita || []), ...(personalizadas.despesa || [])]);
+
+    // As categorias personalizadas (criadas pelo usuário) NÃO entram na
+    // distribuição da paleta — elas sempre usam a mesma cor única fixa,
+    // diferente de tudo que já está em uso pelas categorias fixas.
+    const todasCategorias = [...new Set([...receitas, ...despesas])]
+        .filter(cat => !state.customCategoryNames.has(cat));
     const cores = generateDistinctColors(todasCategorias.length);
     const mapa = {};
     todasCategorias.forEach((cat, i) => { mapa[cat] = cores[i]; });
     state.categoryColors = mapa;
 }
 
-// Retorna a cor de uma categoria. Se ela ainda não estiver no mapa (ex:
-// categoria antiga usada em transações passadas mas removida da lista
-// atual), reserva uma cor nova que ainda não está em uso por ninguém.
+// Retorna a cor de uma categoria. Categorias criadas pelo usuário sempre
+// recebem a mesma cor única (CUSTOM_CATEGORY_COLOR), para se diferenciarem
+// visualmente das categorias fixas do sistema. Se uma categoria fixa ainda
+// não estiver no mapa (ex: categoria antiga usada em transações passadas
+// mas removida da lista atual), reserva uma cor nova que ainda não está em
+// uso por ninguém.
 function colorForCategoria(nome) {
+    if (state.customCategoryNames && state.customCategoryNames.has(nome)) {
+        return getCustomCategoryColor();
+    }
+
     if (!state.categoryColors) state.categoryColors = {};
     if (state.categoryColors[nome]) return state.categoryColors[nome];
 
     const usadas = new Set(Object.values(state.categoryColors));
+    usadas.add(getCustomCategoryColor());
     const candidatas = generateDistinctColors(usadas.size + CHART_COLORS.length);
     const nova = candidatas.find(c => !usadas.has(c)) || `hsl(${Math.floor(Math.random() * 360)}, 60%, 50%)`;
     state.categoryColors[nome] = nova;
@@ -167,8 +189,16 @@ const api = {
         return this.request(`/transacoes/listar?usuario=${encodeURIComponent(usuario)}`);
     },
 
-    async listarCategorias() {
-        return this.request('/categorias');
+    async listarCategorias(usuario) {
+        const query = usuario ? `?usuario=${encodeURIComponent(usuario)}` : '';
+        return this.request(`/categorias${query}`);
+    },
+
+    async criarCategoria(usuario, tipo, nome) {
+        return this.request('/categorias/criar', {
+            method: 'POST',
+            body: JSON.stringify({ usuario, tipo, nome })
+        });
     },
 
     async listarMetas(usuario) {
@@ -294,9 +324,10 @@ function animateCounter(el, from, to, duration = 900, formatFn = formatCurrency)
 }
 
 function animateSummaryStats() {
-    const saldo = state.resumo?.saldo || 0;
-    const receitas = state.resumo?.receitas || 0;
-    const despesas = state.resumo?.despesas || 0;
+    const resumo = resumoDoPeriodoSelecionado();
+    const saldo = resumo.saldo || 0;
+    const receitas = resumo.receitas || 0;
+    const despesas = resumo.despesas || 0;
     const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
 
     animateCounter(document.getElementById('stat-saldo-value'), prev.saldo, saldo);
@@ -521,13 +552,46 @@ function doLogout() {
 // ========================================
 // LOADERS
 // ========================================
+
+// Verifica as transações pendentes cuja data já chegou (ou passou) e as
+// efetiva automaticamente no servidor, trocando o status de "pendente"
+// para "pago". Isso garante que saldo, receitas e despesas se atualizem
+// sozinhos assim que o dia da transação chega, sem precisar editar nada
+// manualmente.
+async function efetuarTransacoesVencidas() {
+    if (!state.user) return false;
+    const hoje = new Date().toISOString().split('T')[0];
+    const vencidas = (state.transactions || []).filter(t =>
+        t && t.data && t.data <= hoje && t.status !== 'pago' && t.status !== 'efetuada'
+    );
+    if (vencidas.length === 0) return false;
+
+    for (const t of vencidas) {
+        try {
+            await api.atualizarTransacao(state.user, t.id, t.tipo, t.categoria, t.valor, t.data, 'pago');
+            t.status = 'pago';
+        } catch (err) {
+            console.error('Erro ao efetivar transação vencida:', t.id, err);
+        }
+    }
+    return true;
+}
+
 async function loadDashboardData() {
     if (!state.user) return;
+    ultimoPeriodoCarregado = periodoAtual();
+    // Toda vez que os dados são recarregados (login, navegação ou o relógio
+    // detectando que o dia/mês virou), o seletor de mês volta a apontar
+    // sempre para o mês atual.
+    state.selectedPeriod = { mes: periodoAtual().mes, ano: periodoAtual().ano };
     try {
-        state.resumo = await api.getResumo(state.user);
         const transacoesResp = await api.listarTransacoes(state.user);
         state.transactions = transacoesResp?.transacoes || [];
-        state.categories = await api.listarCategorias();
+        // Antes de calcular saldo/receitas/despesas, efetiva automaticamente
+        // qualquer transação pendente cuja data já chegou.
+        await efetuarTransacoesVencidas();
+        state.resumo = resumoDoPeriodoSelecionado();
+        state.categories = await api.listarCategorias(state.user);
         buildCategoryColorMap();
         const metasResp = await api.listarMetas(state.user);
         state.metas = (metasResp?.metas || []).map(m => ({
@@ -574,6 +638,8 @@ function renderView(view) {
             setTimeout(() => {
                 if (typeof Chart !== 'undefined') {
                     renderRelatoriosCharts();
+                } else {
+                    checkChartJs();
                 }
             }, 100);
             break;
@@ -631,14 +697,14 @@ function renderLogin() {
                 <button data-tab="register">Cadastrar</button>
             </div>
             <div id="login-form-container">
-                <form id="login-form">
+                <form id="login-form" autocomplete="off">
                     <div class="form-group">
                         <label>Usuário</label>
-                        <input type="text" id="login-user" placeholder="seu_usuario" required />
+                        <input type="text" id="login-user" name="login-user-field" placeholder="seu_usuario" autocomplete="off" data-lpignore="true" required />
                     </div>
                     <div class="form-group">
                         <label>Senha</label>
-                        <input type="password" id="login-pass" placeholder="••••••••" required />
+                        <input type="password" id="login-pass" name="login-pass-field" placeholder="••••••••" autocomplete="new-password" data-lpignore="true" required />
                     </div>
                     <div class="forgot-password-link">
                         <a href="#" id="forgot-password-link">Esqueceu sua senha?</a>
@@ -647,22 +713,22 @@ function renderLogin() {
                 </form>
             </div>
             <div id="register-form-container" style="display:none;">
-                <form id="register-form">
+                <form id="register-form" autocomplete="off">
                     <div class="form-group">
                         <label>Nome</label>
-                        <input type="text" id="reg-nome" placeholder="João" required />
+                        <input type="text" id="reg-nome" name="reg-nome-field" placeholder="João" autocomplete="off" required />
                     </div>
                     <div class="form-group">
                         <label>Sobrenome</label>
-                        <input type="text" id="reg-sobrenome" placeholder="Silva" required />
+                        <input type="text" id="reg-sobrenome" name="reg-sobrenome-field" placeholder="Silva" autocomplete="off" required />
                     </div>
                     <div class="form-group">
                         <label>Usuário</label>
-                        <input type="text" id="reg-user" placeholder="seu_usuario" required />
+                        <input type="text" id="reg-user" name="reg-user-field" placeholder="seu_usuario" autocomplete="off" data-lpignore="true" required />
                     </div>
                     <div class="form-group">
                         <label>Senha</label>
-                        <input type="password" id="reg-pass" placeholder="••••••••" required />
+                        <input type="password" id="reg-pass" name="reg-pass-field" placeholder="••••••••" autocomplete="new-password" data-lpignore="true" required />
                     </div>
                     <button type="submit" class="btn-primary">Cadastrar</button>
                 </form>
@@ -696,9 +762,10 @@ function renderLogin() {
 // RENDER: DASHBOARD
 // ========================================
 function renderDashboard() {
-    const saldo = state.resumo?.saldo || 0;
-    const receitas = state.resumo?.receitas || 0;
-    const despesas = state.resumo?.despesas || 0;
+    const resumo = resumoDoPeriodoSelecionado();
+    const saldo = resumo.saldo || 0;
+    const receitas = resumo.receitas || 0;
+    const despesas = resumo.despesas || 0;
     const nome = state.userName || 'Usuário';
     const fullName = state.userFullName || 'Usuário';
     const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
@@ -712,6 +779,8 @@ function renderDashboard() {
                     <span>${fullName}</span>
                 </div>
             </div>
+
+            ${renderSeletorMes()}
 
             <div class="card-grid">
                 <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
@@ -735,7 +804,7 @@ function renderDashboard() {
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <h3>Receitas por Categoria</h3>
-                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                        <button class="btn-ver-mais" onclick="navigate('relatorios')">Ver mais</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-receitas"></canvas></div>
                     <div id="legend-receitas" class="legend-list" style="margin-top:12px;">
@@ -748,7 +817,7 @@ function renderDashboard() {
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <h3>Despesas por Categoria</h3>
-                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                        <button class="btn-ver-mais" onclick="navigate('relatorios')">Ver mais</button>
                     </div>
                     <div class="chart-wrap"><canvas id="chart-despesas"></canvas></div>
                     <div id="legend-despesas" class="legend-list" style="margin-top:12px;">
@@ -764,7 +833,7 @@ function renderDashboard() {
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <h3>Balanço Mensal</h3>
-                        <button class="btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="navigate('relatorios')">VER MAIS →</button>
+                        <button class="btn-ver-mais" onclick="navigate('relatorios')">Ver mais</button>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0;">
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg-input);border-radius:8px;">
@@ -784,7 +853,7 @@ function renderDashboard() {
             </div>
 
             <div class="card">
-                <h3 class="mb-md">🎯 Planejamento</h3>
+                <h3 class="mb-md">Planejamento</h3>
                 ${state.metas && state.metas.length > 0 ? `
                     ${state.metas.map((meta, idx) => `
                         <div${idx > 0 ? ' style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);"' : ''}>
@@ -814,12 +883,161 @@ function renderDashboard() {
     `;
 }
 
+// ========================================
+// FILTRO DE MÊS (mês atual + últimos 6 meses)
+// Por padrão, gráficos, saldo/receitas/despesas e a lista de transações
+// mostram o mês corrente. A pessoa pode escolher qualquer um dos 6 meses
+// anteriores no seletor — quando isso acontece, o site inteiro (dashboard,
+// transações, receitas, despesas) se atualiza com os valores salvos
+// daquele mês. Nada é apagado: os meses anteriores continuam guardados.
+// Sempre que o site recarrega os dados (login, navegação, ou quando o
+// relógio detecta que o mês/dia virou) o seletor volta para o mês atual.
+// ========================================
+function periodoAtual() {
+    const hoje = new Date();
+    return { mes: hoje.getMonth() + 1, ano: hoje.getFullYear(), dia: hoje.getDate() };
+}
+
+// Lista as opções de mês disponíveis no seletor: o mês atual + os 6
+// anteriores (7 opções no total), da mais recente para a mais antiga.
+function opcoesDeMeses() {
+    const hoje = new Date();
+    const opcoes = [];
+    for (let i = 0; i <= 6; i++) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        opcoes.push({ mes: d.getMonth() + 1, ano: d.getFullYear() });
+    }
+    return opcoes;
+}
+
+// Nomes dos meses por extenso, usados no lugar de toLocaleString para
+// garantir sempre o formato "Mês Ano" (ex: "Setembro 2026"), sem a
+// partícula "de" que o pt-BR do navegador costuma inserir.
+const NOMES_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const NOMES_MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function nomeDoMes(mes, ano) {
+    const nome = NOMES_MESES[mes - 1] || '';
+    const capitalizado = nome.charAt(0).toUpperCase() + nome.slice(1);
+    return `${capitalizado} ${ano}`;
+}
+
+function nomeMesAbreviado(mes, ano) {
+    return NOMES_MESES_ABREV[mes - 1] || '';
+}
+
+function periodoSelecionado() {
+    return state.selectedPeriod || periodoAtual();
+}
+
+function transacoesDoPeriodoSelecionado() {
+    const { mes, ano } = periodoSelecionado();
+    return (state.transactions || []).filter(t => {
+        if (!t || !t.data) return false;
+        const [anoTx, mesTx] = t.data.split('-').map(Number);
+        return anoTx === ano && mesTx === mes;
+    });
+}
+
+function calcularResumoPeriodo(mes, ano) {
+    let saldo = 0, receitas = 0, despesas = 0;
+    (state.transactions || []).forEach(t => {
+        if (!t || !t.data) return;
+        const [anoTx, mesTx] = t.data.split('-').map(Number);
+        if (anoTx !== ano || mesTx !== mes) return;
+        if (t.status !== 'pago' && t.status !== 'efetuada') return;
+        const valor = Number(t.valor);
+        if (t.tipo === 'receita') { saldo += valor; receitas += valor; }
+        else if (t.tipo === 'despesa') { saldo -= valor; despesas += valor; }
+    });
+    return { saldo, receitas, despesas };
+}
+
+function resumoDoPeriodoSelecionado() {
+    const { mes, ano } = periodoSelecionado();
+    return calcularResumoPeriodo(mes, ano);
+}
+
 function groupByCategoria(tipo) {
     const totals = {};
-    (state.transactions || [])
+    transacoesDoPeriodoSelecionado()
         .filter(t => t.tipo === tipo && (t.status === 'pago' || t.status === 'efetuada'))
         .forEach(t => { totals[t.categoria] = (totals[t.categoria] || 0) + Number(t.valor); });
     return totals;
+}
+
+// Lista os últimos N meses (do mais antigo para o mais recente, terminando
+// no mês atual). Usado no card "Balanço dos Últimos Meses" de Relatórios.
+function ultimosNMeses(n) {
+    const hoje = new Date();
+    const meses = [];
+    for (let i = n - 1; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        meses.push({ mes: d.getMonth() + 1, ano: d.getFullYear() });
+    }
+    return meses;
+}
+
+// Seletor de mês usado no Dashboard e em Transações/Receitas/Despesas/Relatórios.
+function renderSeletorMes() {
+    const opcoes = opcoesDeMeses();
+    const selecionado = periodoSelecionado();
+    return `
+        <div class="mes-seletor">
+            <select id="seletor-mes-periodo" class="mes-seletor-select" onchange="window.selecionarMesPeriodo(this.value)">
+                ${opcoes.map(o => {
+                    const value = `${o.ano}-${String(o.mes).padStart(2, '0')}`;
+                    const isSel = o.mes === selecionado.mes && o.ano === selecionado.ano;
+                    return `<option value="${value}" ${isSel ? 'selected' : ''}>${nomeDoMes(o.mes, o.ano)}</option>`;
+                }).join('')}
+            </select>
+        </div>
+    `;
+}
+
+window.selecionarMesPeriodo = (value) => {
+    const [ano, mes] = value.split('-').map(Number);
+    state.selectedPeriod = { mes, ano };
+    state.prevStats = resumoDoPeriodoSelecionado();
+    renderView(state.currentView);
+};
+
+// Fica de olho no relógio: se o mês/dia mudou desde o último carregamento,
+// recarrega os dados automaticamente (saldo, receitas, despesas e gráficos
+// voltam a considerar o mês atual, zerado, sem perder o histórico) e o
+// seletor de mês volta a apontar para o mês corrente. Também é aqui que
+// transações pendentes cuja data chegou são efetivadas (via loadDashboardData
+// -> efetuarTransacoesVencidas).
+let ultimoPeriodoCarregado = null;
+function verificarMudancaDeMes() {
+    if (!state.user) return;
+    const atual = periodoAtual();
+    // Recarrega quando o dia muda (para efetivar transações pendentes que
+    // acabaram de vencer) e, claro, sempre que o mês/ano muda.
+    const mudou = ultimoPeriodoCarregado && (
+        ultimoPeriodoCarregado.dia !== atual.dia ||
+        ultimoPeriodoCarregado.mes !== atual.mes ||
+        ultimoPeriodoCarregado.ano !== atual.ano
+    );
+    if (mudou) {
+        ultimoPeriodoCarregado = atual;
+        loadDashboardData();
+        return;
+    }
+    ultimoPeriodoCarregado = atual;
+}
+
+// Verifica periodicamente (sem esperar o dia virar) se alguma transação já
+// carregada ficou vencida (data <= hoje) e ainda está pendente, efetivando-a
+// e atualizando a tela na hora — cobre o caso de o app ficar aberto no
+// exato dia em que a transação pendente deveria virar paga.
+async function verificarTransacoesVencidasEmSegundoPlano() {
+    if (!state.user) return;
+    const mudou = await efetuarTransacoesVencidas();
+    if (mudou) {
+        state.prevStats = resumoDoPeriodoSelecionado();
+        renderView(state.currentView);
+    }
 }
 
 function renderDoughnutChart(canvasId, legendId, totals, key, chartsObj) {
@@ -886,24 +1104,92 @@ function renderDashboardCharts() {
     renderDoughnutChart('chart-despesas', 'legend-despesas', despesasTotals, 'despesas', dashboardCharts);
 }
 
+// Gráfico de barras verticais com o balanço dos últimos 6 meses: verde para
+// receitas, vermelho para despesas. Meses sem nenhum valor lançado ficam
+// naturalmente sem barra (altura 0). É redesenhado toda vez que a tela de
+// Relatórios é renderizada, então qualquer transação nova (criada, editada
+// ou excluída) atualiza o gráfico automaticamente.
+function renderGraficoBalancoMeses() {
+    const canvas = document.getElementById('chart-balanco-meses');
+    if (!canvas) return;
+
+    if (relatoriosCharts.balancoMeses) {
+        relatoriosCharts.balancoMeses.destroy();
+        relatoriosCharts.balancoMeses = null;
+    }
+
+    if (typeof Chart === 'undefined') return;
+
+    const meses = ultimosNMeses(6);
+    const labels = meses.map(({ mes, ano }) => nomeMesAbreviado(mes, ano));
+    const receitasData = meses.map(({ mes, ano }) => calcularResumoPeriodo(mes, ano).receitas);
+    const despesasData = meses.map(({ mes, ano }) => calcularResumoPeriodo(mes, ano).despesas);
+
+    relatoriosCharts.balancoMeses = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Receitas',
+                    data: receitasData,
+                    backgroundColor: '#4caf84',
+                    borderRadius: 20,
+                    borderSkipped: false,
+                    maxBarThickness: 26
+                },
+                {
+                    label: 'Despesas',
+                    data: despesasData,
+                    backgroundColor: '#dc3545',
+                    borderRadius: 20,
+                    borderSkipped: false,
+                    maxBarThickness: 26
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: (v) => formatCurrency(v) }
+                },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                    }
+                }
+            }
+        }
+    });
+}
+
 function renderRelatoriosCharts() {
     const receitasTotals = groupByCategoria('receita');
     const despesasTotals = groupByCategoria('despesa');
     
     renderDoughnutChart('chart-rel-receitas', 'legend-rel-receitas', receitasTotals, 'receitas', relatoriosCharts);
     renderDoughnutChart('chart-rel-despesas', 'legend-rel-despesas', despesasTotals, 'despesas', relatoriosCharts);
+    renderGraficoBalancoMeses();
 }
 
 // ========================================
 // RENDER: TRANSAÇÕES
 // ========================================
 function renderTransacoes() {
-    const saldo = state.resumo?.saldo || 0;
-    const receitas = state.resumo?.receitas || 0;
-    const despesas = state.resumo?.despesas || 0;
+    const resumo = resumoDoPeriodoSelecionado();
+    const saldo = resumo.saldo || 0;
+    const receitas = resumo.receitas || 0;
+    const despesas = resumo.despesas || 0;
     const prev = state.prevStats || { saldo: 0, receitas: 0, despesas: 0 };
     
-    let transacoes = state.transactions || [];
+    let transacoes = transacoesDoPeriodoSelecionado();
     
     const view = state.currentView;
     if (view === 'receitas') {
@@ -920,6 +1206,7 @@ function renderTransacoes() {
                 <h1>${titulo}</h1>
                 <button class="btn-primary" onclick="openTransactionModal()">+ Nova Transação</button>
             </div>
+            ${renderSeletorMes()}
 
             <div class="card-grid">
                 <div class="card stat-info" style="cursor:pointer;" onclick="navigate('transacoes')">
@@ -1040,7 +1327,7 @@ function renderMetaCard(meta) {
                 <div><strong>Progresso:</strong> ${progresso.toFixed(1)}%</div>
             </div>
             <div class="text-center text-muted mb-md" style="background:var(--bg-input);border-radius:12px;padding:16px;">
-                🎯 Clique nos quadradinhos para marcar uma parcela como guardada. Uma vez marcada, ela fica salva para sempre.
+                🎯 Clique nos quadradinhos para marcar ou desmarcar uma parcela como guardada.
             </div>
             <div class="cofrinho-grid">
                 ${Array.from({length: totalParcelas}, (_, i) => {
@@ -1049,8 +1336,8 @@ function renderMetaCard(meta) {
                         <div class="cofrinho-cell${concluida ? ' completed' : ''}"
                              data-index="${i}"
                              data-titulo="${meta.titulo}"
-                             onclick="${concluida ? '' : `toggleCofrinho(this)`}"
-                             title="${concluida ? 'Parcela guardada — não pode ser desmarcada' : `Marcar ${formatCurrency(valorParcela)} como guardado`}">
+                             onclick="toggleCofrinho(this)"
+                             title="${concluida ? `Guardado — clique para desmarcar` : `Marcar ${formatCurrency(valorParcela)} como guardado`}">
                             ${formatCompactCurrency(valorParcela)}
                         </div>
                     `;
@@ -1065,7 +1352,7 @@ function renderPlanejamento() {
 
     return `
         <div class="view">
-            <h1>🎯 Planejamento</h1>
+            <h1>Planejamento</h1>
 
             <div class="card">
                 <h3>Nova Meta</h3>
@@ -1106,12 +1393,29 @@ function renderPlanejamento() {
 // RENDER: RELATÓRIOS
 // ========================================
 function renderRelatorios() {
-    const receitas = state.resumo?.receitas || 0;
-    const despesas = state.resumo?.despesas || 0;
+    const resumo = resumoDoPeriodoSelecionado();
+    const receitas = resumo.receitas || 0;
+    const despesas = resumo.despesas || 0;
     const balanco = receitas - despesas;
     
-    const mesAtual = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-    const mesCapitalizado = mesAtual.charAt(0).toUpperCase() + mesAtual.slice(1);
+    const { mes, ano } = periodoSelecionado();
+    const mesCapitalizado = nomeDoMes(mes, ano);
+
+    // Lista dos últimos 6 meses com o total de receitas e despesas de cada
+    // um — mostrada ao lado do gráfico de barras verticais.
+    function renderBalancoUltimosMeses() {
+        const meses = ultimosNMeses(6);
+        return meses.map(({ mes: m, ano: a }) => {
+            const r = calcularResumoPeriodo(m, a);
+            return `
+                <div class="balanco-mes-item">
+                    <div class="balanco-mes-titulo">${nomeDoMes(m, a)}</div>
+                    <div class="balanco-mes-linha"><span>Receita</span><span>${formatCurrency(r.receitas)}</span></div>
+                    <div class="balanco-mes-linha"><span>Despesa</span><span>${formatCurrency(r.despesas)}</span></div>
+                </div>
+            `;
+        }).join('');
+    }
     
     function renderBalancoMensal() {
         return `
@@ -1134,7 +1438,9 @@ function renderRelatorios() {
 
     return `
         <div class="view">
-            <h1>📈 Relatórios</h1>
+            <h1>Relatórios</h1>
+
+            ${renderSeletorMes()}
             
             <div class="card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1143,6 +1449,18 @@ function renderRelatorios() {
                 
                 <h4 style="margin-bottom:12px;color:var(--text-secondary);font-weight:500;">Balanço Mensal</h4>
                 ${renderBalancoMensal()}
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <h3 class="mb-md">Balanço dos Últimos Meses</h3>
+                <div class="balanco-meses-wrap">
+                    <div class="balanco-meses-chart">
+                        <canvas id="chart-balanco-meses"></canvas>
+                    </div>
+                    <div class="balanco-meses-lista">
+                        ${renderBalancoUltimosMeses()}
+                    </div>
+                </div>
             </div>
 
             <div class="card" style="margin-top:24px;">
@@ -1185,18 +1503,24 @@ function renderRelatorios() {
 // ========================================
 // RENDER: CONFIGURAÇÕES
 // ========================================
+const INVITE_LINK = 'https://nexus-finance-lemon.vercel.app';
+
 function renderConfiguracoes() {
     return `
         <div class="view">
             <h1>⚙️ Configurações</h1>
 
             <div class="card">
-                <h3 class="mb-md">👤 Perfil</h3>
+                <h3 class="mb-md">Perfil</h3>
                 <div class="avatar-upload-row">
-                    ${renderAvatar('large')}
+                    <div class="avatar-large clickable" onclick="openPhotoLightbox()" title="Clique para ampliar">
+                        ${state.userFoto
+                            ? `<img src="${state.userFoto}" alt="Foto de perfil" />`
+                            : (state.userFullName ? state.userFullName.charAt(0).toUpperCase() : '👤')}
+                    </div>
                     <div class="avatar-upload-info">
-                        <div><strong>Nome:</strong> ${state.userFullName || ''}</div>
-                        <div><strong>Usuário:</strong> ${state.user || ''}</div>
+                        <div class="profile-name">${state.userFullName || ''}</div>
+                        <div class="profile-username">Usuário: ${state.user || ''}</div>
                     </div>
                 </div>
                 <div class="avatar-upload-actions">
@@ -1204,22 +1528,16 @@ function renderConfiguracoes() {
                     <input type="file" id="foto-input" accept="image/*" class="visually-hidden-input" />
                     ${state.userFoto ? `<button class="btn-secondary" onclick="removeProfilePhoto()">Remover Foto</button>` : ''}
                     <button class="btn-secondary" onclick="updateProfile()"> Editar Nome</button>
+                    <button type="button" class="btn-secondary" onclick="abrirAlterarSenha()">Alterar Senha</button>
                 </div>
-            </div>
 
-            <div class="card">
-                <h3 class="mb-md">🔐 Alterar Senha</h3>
-                <form id="change-password-form">
-                    <div class="form-group">
-                        <label>Senha Antiga</label>
-                        <input type="password" id="old-pass" placeholder="••••••••" required />
+                <div class="convite-amigos-box">
+                    <div class="convite-amigos-titulo">🎉 Convide seus amigos</div>
+                    <div class="convite-amigos-row">
+                        <div class="convite-amigos-link" id="convite-link-texto">${INVITE_LINK}</div>
+                        <button type="button" class="btn-secondary convite-amigos-copy" onclick="copiarLinkConvite()">📋 Copiar link</button>
                     </div>
-                    <div class="form-group">
-                        <label>Nova Senha</label>
-                        <input type="password" id="new-pass" placeholder="••••••••" required />
-                    </div>
-                    <button type="submit" class="btn-primary">Alterar Senha</button>
-                </form>
+                </div>
             </div>
 
             <div class="card">
@@ -1231,11 +1549,16 @@ function renderConfiguracoes() {
             </div>
 
             <div class="card" style="border-color:var(--color-danger);">
-                <h3 class="mb-md" style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
-                <div class="row-wrap-sm">
-                    <button class="btn-danger" onclick="resetAccount()"> Resetar Conta</button>
-                    <button class="btn-danger" onclick="deleteAccount()">Excluir Conta</button>
-                    <button class="btn-secondary" onclick="doLogout()"> Sair</button>
+                <div class="acoes-conta-toggle" onclick="toggleAcoesConta()">
+                    <h3 style="color:var(--color-danger);">⚠️ Ações de Conta</h3>
+                    <span class="acoes-conta-chevron" id="acoes-conta-chevron">▼</span>
+                </div>
+                <div class="acoes-conta-body" id="acoes-conta-body">
+                    <div class="row-wrap-sm">
+                        <button class="btn-danger" onclick="resetAccount()"> Resetar Conta</button>
+                        <button class="btn-danger" onclick="deleteAccount()">Excluir Conta</button>
+                        <button class="btn-secondary" onclick="doLogout()"> Sair</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1339,7 +1662,14 @@ function bindEvents(view) {
             try {
                 await api.criarConta(nome, sobrenome, user, pass);
                 showToast('Conta criada com sucesso! Faça login.', 'success');
+                registerForm.reset();
                 document.querySelector('.login-tabs button[data-tab="login"]')?.click();
+                // Garante que o usuário/senha não fiquem pré-preenchidos:
+                // a pessoa precisa digitar suas credenciais para entrar.
+                const loginUserField = document.getElementById('login-user');
+                const loginPassField = document.getElementById('login-pass');
+                if (loginUserField) loginUserField.value = '';
+                if (loginPassField) loginPassField.value = '';
             } catch (err) {
                 showToast('Erro: ' + (err.message || ''), 'error');
             }
@@ -1387,23 +1717,6 @@ function bindEvents(view) {
             }
         };
     }
-
-    const passForm = document.getElementById('change-password-form');
-    if (passForm) {
-        passForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const oldPass = document.getElementById('old-pass').value;
-            const newPass = document.getElementById('new-pass').value;
-            if (!oldPass || !newPass) { showToast('Preencha todos os campos', 'error'); return; }
-            try {
-                await api.atualizarSenha(state.user, oldPass, newPass);
-                showToast('Senha alterada com sucesso!', 'success');
-                passForm.reset();
-            } catch (err) {
-                showToast('Erro: ' + (err.message || ''), 'error');
-            }
-        };
-    }
 }
 
 // ========================================
@@ -1413,20 +1726,145 @@ window.navigate = navigate;
 window.doLogout = doLogout;
 
 window.setTheme = (theme) => {
+    const mudou = state.theme !== theme;
     state.theme = theme;
     document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : '');
     localStorage.setItem('nexus_theme', theme);
     const icon = document.getElementById('theme-toggle');
     if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+
+    // A cor das categorias personalizadas depende do tema (branco no escuro,
+    // preto no claro) — redesenha a view atual para os gráficos refletirem.
+    if (mudou && state.user) {
+        renderView(state.currentView);
+    }
 };
 
 window.maskCurrency = maskCurrency;
 
+// Abre um card/modal para a pessoa alterar a própria senha, consumindo
+// diretamente a API de alteração de senha (/atualizar_senha).
+window.abrirAlterarSenha = () => {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>🔒 Alterar Senha</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <form id="alterar-senha-form">
+                <div class="form-group">
+                    <label>Senha atual</label>
+                    <input type="password" id="senha-atual-input" placeholder="Digite sua senha atual" required autofocus />
+                </div>
+                <div class="form-group">
+                    <label>Nova senha</label>
+                    <input type="password" id="senha-nova-input" placeholder="Digite a nova senha" required minlength="6" />
+                </div>
+                <div class="form-group">
+                    <label>Confirmar nova senha</label>
+                    <input type="password" id="senha-nova-confirm-input" placeholder="Confirme a nova senha" required minlength="6" />
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                    <button type="submit" class="btn-primary" id="alterar-senha-submit">Salvar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    document.getElementById('alterar-senha-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const senhaAtual = document.getElementById('senha-atual-input').value;
+        const senhaNova = document.getElementById('senha-nova-input').value;
+        const senhaNovaConfirm = document.getElementById('senha-nova-confirm-input').value;
+
+        if (!senhaAtual || !senhaNova || !senhaNovaConfirm) {
+            showToast('Preencha todos os campos', 'error');
+            return;
+        }
+        if (senhaNova.length < 6) {
+            showToast('A nova senha deve ter pelo menos 6 caracteres', 'error');
+            return;
+        }
+        if (senhaNova !== senhaNovaConfirm) {
+            showToast('As senhas não coincidem', 'error');
+            return;
+        }
+
+        const submitBtn = document.getElementById('alterar-senha-submit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvando...';
+
+        try {
+            await api.atualizarSenha(state.user, senhaAtual, senhaNova);
+            showToast('Senha atualizada com sucesso!', 'success');
+            modal.remove();
+        } catch (err) {
+            showToast('Erro: ' + (err.message || 'Não foi possível alterar a senha'), 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Salvar';
+        }
+    };
+};
+
+// Abre a foto de perfil ampliada em um lightbox. Só abre se houver foto.
+window.openPhotoLightbox = () => {
+    if (!state.userFoto) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'photo-lightbox-overlay';
+    overlay.innerHTML = `
+        <button class="photo-lightbox-close" aria-label="Fechar">✕</button>
+        <img src="${state.userFoto}" alt="Foto de perfil ampliada" />
+    `;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.classList.contains('photo-lightbox-close')) {
+            overlay.remove();
+        }
+    });
+    document.body.appendChild(overlay);
+};
+
+// Copia o link de convite para a área de transferência.
+window.copiarLinkConvite = async () => {
+    try {
+        await navigator.clipboard.writeText(INVITE_LINK);
+        showToast('Link copiado!', 'success');
+    } catch (err) {
+        // Fallback para navegadores sem suporte à Clipboard API
+        const temp = document.createElement('textarea');
+        temp.value = INVITE_LINK;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.select();
+        try {
+            document.execCommand('copy');
+            showToast('Link copiado!', 'success');
+        } catch (e2) {
+            showToast('Não foi possível copiar o link', 'error');
+        }
+        temp.remove();
+    }
+};
+
+// Expande/recolhe o card de "Ações de Conta".
+window.toggleAcoesConta = () => {
+    const body = document.getElementById('acoes-conta-body');
+    const chevron = document.getElementById('acoes-conta-chevron');
+    if (!body) return;
+    const abrindo = !body.classList.contains('open');
+    body.classList.toggle('open', abrindo);
+    if (chevron) chevron.classList.toggle('open', abrindo);
+};
+
 window.toggleCofrinho = async (el) => {
-    // Só permite marcar (nunca desmarcar). Uma parcela já concluída não tem
-    // onclick (ver renderPlanejamento), então chegar aqui significa que
-    // ainda está pendente.
-    if (el.classList.contains('completed') || el.classList.contains('loading')) return;
+    // Marca ou desmarca a parcela — os quadradinhos podem ser alternados
+    // livremente a qualquer momento.
+    if (el.classList.contains('loading')) return;
 
     const indice = parseInt(el.dataset.index, 10);
     const titulo = el.dataset.titulo;
@@ -1444,14 +1882,13 @@ window.toggleCofrinho = async (el) => {
         if (meta) meta.parcelas = resp.parcelas || meta.parcelas;
 
         el.classList.remove('loading');
-        el.classList.add('completed');
-        el.onclick = null;
+        el.classList.toggle('completed', !!resp.marcada);
         el.textContent = textoOriginal;
-        el.title = 'Parcela guardada — não pode ser desmarcada';
+        el.title = resp.marcada ? 'Guardado — clique para desmarcar' : `Marcar como guardado`;
 
         // Atualiza o "Valor Atual" no resumo sem precisar recarregar a página.
         renderView(state.currentView);
-        showToast('Parcela guardada com sucesso!', 'success');
+        showToast(resp.marcada ? 'Parcela guardada com sucesso!' : 'Parcela desmarcada.', 'success');
     } catch (err) {
         console.error('Erro ao salvar parcela:', err);
         el.classList.remove('loading');
@@ -1656,11 +2093,9 @@ window.editMeta = (titulo) => {
                         <input type="number" id="edit-meta-anos" value="${meta.anos}" min="1" max="40" required />
                     </div>
                 </div>
-                ${meta.parcelas && meta.parcelas.length > 0 ? `
-                    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
-                        ⚠️ Reduzir o prazo pode ocultar parcelas que já foram marcadas como guardadas.
-                    </p>
-                ` : ''}
+                <p style="color:var(--color-warning, #f5b86e);font-size:0.85rem;margin-bottom:12px;">
+                    ⚠️ Editar essa meta vai zerar todas as parcelas já guardadas, já que o valor de cada parcela muda junto.
+                </p>
                 <button type="submit" class="btn-primary" style="width:100%;">Salvar Alterações</button>
             </form>
         </div>
@@ -1677,14 +2112,42 @@ window.editMeta = (titulo) => {
             showToast('Preencha todos os campos corretamente', 'error');
             return;
         }
-        try {
-            await api.atualizarMeta(state.user, meta.titulo, novoTitulo, novoValor, novosAnos);
-            showToast('Meta atualizada!', 'success');
-            modal.remove();
-            await loadDashboardData();
-        } catch (err) {
-            showToast('Erro: ' + (err.message || ''), 'error');
-        }
+
+        // Editar sempre zera as parcelas guardadas — pede confirmação antes.
+        const temParcelas = meta.parcelas && meta.parcelas.length > 0;
+        const confirmModal = document.createElement('div');
+        confirmModal.className = 'modal-overlay';
+        confirmModal.innerHTML = `
+            <div class="modal" style="max-width:400px;">
+                <div class="modal-header">
+                    <h2>⚠️ Confirmar edição</h2>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                </div>
+                <p style="color:var(--text-secondary);margin-bottom:20px;">
+                    ${temParcelas
+                        ? 'Salvar essa edição vai <strong>zerar todas as parcelas</strong> que você já marcou como guardadas nessa meta. Tem certeza que deseja continuar?'
+                        : 'Salvar essa edição vai reiniciar o progresso da meta (as parcelas guardadas futuras partirão do zero). Tem certeza que deseja continuar?'}
+                </p>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+                    <button class="btn-danger" id="confirm-meta-edit">Sim, salvar e zerar</button>
+                </div>
+            </div>
+        `;
+        confirmModal.addEventListener('click', (e2) => { if (e2.target === confirmModal) confirmModal.remove(); });
+        document.body.appendChild(confirmModal);
+
+        document.getElementById('confirm-meta-edit').addEventListener('click', async () => {
+            confirmModal.remove();
+            try {
+                await api.atualizarMeta(state.user, meta.titulo, novoTitulo, novoValor, novosAnos);
+                showToast('Meta atualizada! As parcelas foram zeradas.', 'success');
+                modal.remove();
+                await loadDashboardData();
+            } catch (err) {
+                showToast('Erro: ' + (err.message || ''), 'error');
+            }
+        });
     };
 };
 
@@ -1835,8 +2298,11 @@ window.resetAccount = async () => {
         modal.remove();
         try {
             await api.reiniciarConta(state.user);
-            showToast('Conta resetada!', 'success');
-            doLogout();
+            showToast('Conta resetada! Seus dados foram apagados.', 'success');
+            // Não desloga a pessoa — apenas limpa os dados e recarrega tudo
+            // do zero, mantendo a sessão ativa.
+            await loadDashboardData();
+            navigate('dashboard');
         } catch (err) {
             showToast('Erro: ' + (err.message || ''), 'error');
         }
@@ -1881,10 +2347,61 @@ function computeStatusFromDate(dataStr) {
 
 function categoriaOptionsHTML(tipo, selecionada) {
     const lista = (state.categories && state.categories[tipo]) || [];
-    if (lista.length === 0) {
-        return `<option value="">Nenhuma categoria disponível</option>`;
-    }
-    return lista.map(cat => `<option value="${cat}" ${cat === selecionada ? 'selected' : ''}>${cat}</option>`).join('');
+    const opcoesExistentes = lista.length === 0
+        ? `<option value="">Nenhuma categoria disponível</option>`
+        : lista.map(cat => `<option value="${cat}" ${cat === selecionada ? 'selected' : ''}>${cat}</option>`).join('');
+
+    return `${opcoesExistentes}<option value="${NOVA_CATEGORIA_VALUE}">Adicionar categoria...</option>`;
+}
+
+// Modal bonitinho pra pessoa digitar o nome de uma categoria nova, no
+// lugar do prompt() feio do navegador. Resolve com o nome digitado ou
+// null se a pessoa cancelar.
+function abrirModalNovaCategoria(tipo) {
+    return new Promise((resolve) => {
+        const rotuloTipo = tipo === 'receita' ? 'receita' : 'despesa';
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="max-width:380px;">
+                <div class="modal-header">
+                    <h2>Nova categoria</h2>
+                    <button type="button" class="modal-close" id="nova-categoria-fechar">✕</button>
+                </div>
+                <p class="sub" style="text-align:left;margin-bottom:16px;">Digite o nome da nova categoria de ${rotuloTipo}:</p>
+                <form id="nova-categoria-form">
+                    <div class="form-group">
+                        <label>Nome da categoria</label>
+                        <input type="text" id="nova-categoria-nome" placeholder="Ex: Pet, Cursos, Assinaturas..." maxlength="40" autocomplete="off" required />
+                    </div>
+                    <div style="display:flex;gap:12px;justify-content:flex-end;">
+                        <button type="button" class="btn-secondary" id="nova-categoria-cancelar">Cancelar</button>
+                        <button type="submit" class="btn-primary">Adicionar</button>
+                    </div>
+                </form>
+            </div>
+        `;
+
+        const fechar = (valor) => {
+            modal.removeEventListener('click', onOverlayClick);
+            modal.remove();
+            resolve(valor);
+        };
+        const onOverlayClick = (e) => { if (e.target === modal) fechar(null); };
+
+        modal.addEventListener('click', onOverlayClick);
+        document.body.appendChild(modal);
+
+        modal.querySelector('#nova-categoria-fechar').onclick = () => fechar(null);
+        modal.querySelector('#nova-categoria-cancelar').onclick = () => fechar(null);
+        modal.querySelector('#nova-categoria-form').onsubmit = (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('nova-categoria-nome').value.trim();
+            fechar(nome || null);
+        };
+
+        setTimeout(() => document.getElementById('nova-categoria-nome')?.focus(), 60);
+    });
 }
 
 function statusPreviewHTML(dataStr) {
@@ -1958,16 +2475,36 @@ window.openTransactionModal = (tx = null) => {
 
     if (!isRestricted) {
         tipoSelect.addEventListener('change', function() {
-            const tipo = this.value;
-            const categorias = state.categories[tipo] || [];
-            categoriaSelect.innerHTML = categorias.map(cat => 
-                `<option value="${cat}">${cat}</option>`
-            ).join('');
-            if (categorias.length === 0) {
-                categoriaSelect.innerHTML = `<option value="">Nenhuma categoria disponível</option>`;
-            }
+            categoriaSelect.innerHTML = categoriaOptionsHTML(this.value, null);
         });
     }
+
+    categoriaSelect.addEventListener('change', async function() {
+        if (this.value !== NOVA_CATEGORIA_VALUE) return;
+
+        const tipoAtual = tipoSelect.value;
+        const nomeAnterior = tx ? tx.categoria : null;
+
+        const nomeNovo = await abrirModalNovaCategoria(tipoAtual);
+
+        if (!nomeNovo) {
+            // Cancelou: volta pra categoria anterior (ou primeira disponível)
+            this.innerHTML = categoriaOptionsHTML(tipoAtual, nomeAnterior);
+            return;
+        }
+
+        try {
+            const resp = await api.criarCategoria(state.user, tipoAtual, nomeNovo.trim());
+            const catResp = await api.listarCategorias(state.user);
+            state.categories = catResp;
+            buildCategoryColorMap();
+            this.innerHTML = categoriaOptionsHTML(tipoAtual, resp.nome);
+            showToast('✅ Categoria criada!', 'success');
+        } catch (err) {
+            showToast('Erro: ' + (err.message || 'Não foi possível criar a categoria'), 'error');
+            this.innerHTML = categoriaOptionsHTML(tipoAtual, nomeAnterior);
+        }
+    });
 
     dataInput.value = tx ? tx.data : new Date().toISOString().split('T')[0];
     if (tx) {
@@ -2119,9 +2656,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.querySelectorAll('#sidebar .nav-item[href]').forEach(el => {
+        const href = el.getAttribute('href');
+        // Ignora links externos (ex.: Nexus Calc) — devem abrir normalmente
+        // em nova aba, sem passar pelo roteador interno do SPA.
+        if (!href || !href.startsWith('#/')) return;
         el.addEventListener('click', (e) => {
             e.preventDefault();
-            const view = el.getAttribute('href').replace('#/', '');
+            const view = href.replace('#/', '');
             navigate(view);
         });
     });
@@ -2133,4 +2674,18 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         navigate('login');
     }
+
+    // Verifica periodicamente se o mês virou (ex: app aberto passando da
+    // meia-noite do último dia do mês) para recarregar tudo zerado no
+    // mês novo, e também sempre que a aba voltar a ficar visível. Também
+    // efetiva, sem esperar o dia virar, qualquer transação pendente cuja
+    // data já chegou (cobre o caso do app já estar aberto no dia certo).
+    setInterval(verificarMudancaDeMes, 60 * 1000);
+    setInterval(verificarTransacoesVencidasEmSegundoPlano, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            verificarMudancaDeMes();
+            verificarTransacoesVencidasEmSegundoPlano();
+        }
+    });
 });
