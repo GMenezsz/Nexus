@@ -4,7 +4,7 @@
 
 console.log('🔵 SCRIPT CARREGADO - v10');
 
-const API_BASE = 'https://nexus-api-teste.onrender.com';
+const API_BASE = 'https://nexus-api-mz3t.onrender.com';
 const STORAGE_KEY = 'nexus_user';
 const USER_NAME_KEY = 'nexus_user_name';
 const USER_FULL_KEY = 'nexus_user_full';
